@@ -21,7 +21,6 @@ import {
   Search,
   Globe,
   Tags,
-  ExternalLink,
   CheckCircle,
   XCircle,
 } from "lucide-react";
@@ -32,18 +31,42 @@ import { fetchProductsWithKeywords } from "@/apiHelpers";
    ===================== */
 const normalizeDomain = (input: string) => {
   let domain = input.trim().toLowerCase();
-
-  // Remove protocol (http:// or https://)
   domain = domain.replace(/^https?:\/\//i, "");
-
-  // Remove www. prefix
   domain = domain.replace(/^www\./i, "");
-
-  // Remove trailing slashes
   domain = domain.replace(/\/+$/, "");
-
-  // Return backend-ready URL
   return `https://${domain}/`;
+};
+
+// ✅ Check valid keyword (rejects {{keyword1}}, {{keyword2}}, …)
+const isValidKeyword = (keyword: string) => {
+  if (!keyword) return false;
+  return !/^\{\{keyword\d+\}\}$/.test(keyword.trim());
+};
+
+// ✅ Save keywords only once
+const saveKeywordsOnce = (data: any) => {
+  if (
+    localStorage.getItem("keywords") &&
+    localStorage.getItem("keywords") !== "[]" &&
+    localStorage.getItem("keyword_count") &&
+    localStorage.getItem("keyword_count") !== "0"
+  ) {
+    console.log("⚠️ Keywords already saved. Not overwriting.");
+    return;
+  }
+
+  const validKeywords = (data.search_keywords || [])
+    .filter((kw: any) => isValidKeyword(kw.keyword))
+    .map((kw: any) => ({
+      id: kw.id,
+      keyword: kw.keyword,
+    }));
+
+  localStorage.setItem("keywords", JSON.stringify(validKeywords));
+  localStorage.setItem("keyword_count", validKeywords.length.toString());
+
+  console.log("✅ Saved keywords:", validKeywords);
+  console.log("✅ Keyword count:", validKeywords.length);
 };
 
 export default function InputPage() {
@@ -71,19 +94,15 @@ export default function InputPage() {
       setDnsStatus(null);
       return;
     }
-
     setDnsStatus("checking");
-
     setTimeout(() => {
       try {
         const normalized = normalizeDomain(url);
-        // Validate domain without protocol and trailing slash
         const domainOnly = normalized
           .replace(/^https:\/\//, "")
           .replace(/\/$/, "");
         const domainRegex =
           /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]?\.[a-zA-Z]{2,}$/;
-
         const isValid = domainRegex.test(domainOnly);
         setDnsStatus(isValid ? "valid" : "invalid");
       } catch {
@@ -180,11 +199,9 @@ export default function InputPage() {
 
       console.log("Brand analysis created");
 
-      // Save to localStorage
-      if (!localStorage.getItem("keywords")) {
-        localStorage.setItem("keywords", JSON.stringify(keywords));
-        localStorage.setItem("keyword_count", keywords.length.toString());
-      }
+      // ✅ Save keywords from API response (with IDs), only once
+      saveKeywordsOnce(data);
+
       if (data.product?.id) {
         localStorage.setItem("product_id", data.product.id);
       }
@@ -198,7 +215,7 @@ export default function InputPage() {
       navigate("/results", {
         state: {
           website: trimmedBrand,
-          keywords,
+          keywords, // still pass state keywords for UI if needed
           productId: data.product?.id,
         },
       });
@@ -211,16 +228,6 @@ export default function InputPage() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const showExampleOutput = () => {
-    navigate("/example-results", {
-      state: {
-        website: "google.com",
-        keywords: ["correctness", "search speed", "recommendation"],
-        isExample: true,
-      },
-    });
   };
 
   /* =====================
@@ -282,24 +289,6 @@ export default function InputPage() {
                           <XCircle className="w-4 h-4 text-destructive" />
                         )}
                       </div>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <p className="text-sm text-gray-500">
-                        {brand.length}/100 characters
-                      </p>
-                      {dnsStatus === "checking" && (
-                        <p className="text-sm text-muted-foreground">
-                          Checking domain...
-                        </p>
-                      )}
-                      {dnsStatus === "invalid" && (
-                        <p className="text-sm text-destructive">
-                          Invalid or unreachable website
-                        </p>
-                      )}
-                      {dnsStatus === "valid" && (
-                        <p className="text-sm text-success">Website verified</p>
-                      )}
                     </div>
                   </div>
 
@@ -393,12 +382,6 @@ export default function InputPage() {
                 </form>
               </CardContent>
             </Card>
-
-            {/* Footer Note */}
-            <p className="text-sm text-gray-500">
-              Insights are based on what AI assistants say about your
-              website—not on scraping your site.
-            </p>
           </div>
         </main>
       </div>

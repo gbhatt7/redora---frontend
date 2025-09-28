@@ -159,14 +159,14 @@ export default function Results() {
   const [resultsData, setResultsData] = useState<ResultsData | null>(null);
   const [analyticsResponse, setAnalyticsResponse] = useState<AnalyticsResponse | null>(null);
   const [currentAnalytics, setCurrentAnalytics] = useState<AnalyticsData | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   const { user } = useAuth();
   const accessToken = localStorage.getItem("access_token") || "";
   const navigate = useNavigate();
   const location = useLocation();
-  const pollingRef = useRef<{ productTimer?: number }>({});
+  const pollingRef = useRef<{ productTimer?: number; hasShownStartMessage?: boolean }>({});
   const mountedRef = useRef(true);
 
   const getCleanDomainName = (url?: string) => {
@@ -238,9 +238,6 @@ export default function Results() {
       if (!productId || !accessToken || !mountedRef.current) return;
       
       try {
-        setIsLoading(true);
-        setError(null);
-        
         const today = new Date().toISOString().split("T")[0];
         const res = await getProductAnalytics(productId, today, accessToken);
         
@@ -257,33 +254,75 @@ export default function Results() {
           
           if (analysisToUse) {
             setCurrentAnalytics(analysisToUse);
-          }
-
-          // Check if we need to continue polling
-          const status = analysisToUse?.status?.toLowerCase() || "";
-          if (status !== "completed" && status !== "failed") {
+          
+          // Check the status to determine if we should stop polling
+          const status = analysisToUse.status?.toLowerCase() || "";
+          
+          if (status === "completed") {
+            // Analysis is complete, stop polling and loading
+            setIsLoading(false);
+            setError(null);
+            
+            // Clear any existing timer
             if (pollingRef.current.productTimer) {
               clearTimeout(pollingRef.current.productTimer);
             }
-            pollingRef.current.productTimer = window.setTimeout(() => {
-              pollProductAnalytics(productId);
-            }, 5000);
-          } else {
+          } else if (status === "failed") {
+            // Analysis failed, stop polling but don't show error
             setIsLoading(false);
-            if (status === "completed") {
-              console.log("Brand analysis completed successfully");
-            } else if (status === "failed") {
-              setError("Analysis failed. Please try again.");
+            setError(null);
+            
+            // Clear any existing timer
+            if (pollingRef.current.productTimer) {
+              clearTimeout(pollingRef.current.productTimer);
             }
+          } else {
+            // Analysis is still in progress, continue polling every 30 seconds
+            setError(null);
+            
+            // Only show the "analysis started" message once
+            if (!pollingRef.current.hasShownStartMessage && mountedRef.current) {
+              pollingRef.current.hasShownStartMessage = true;
+            }
+            
+            if (pollingRef.current.productTimer) {
+              clearTimeout(pollingRef.current.productTimer);
+            }
+            
+            pollingRef.current.productTimer = window.setTimeout(() => {
+              if (mountedRef.current) {
+                pollProductAnalytics(productId);
+              }
+            }, 30000); // Poll every 30 seconds
+          }
+          } else {
+            // No analysis data found, continue polling
+            if (pollingRef.current.productTimer) {
+              clearTimeout(pollingRef.current.productTimer);
+            }
+            
+            pollingRef.current.productTimer = window.setTimeout(() => {
+              if (mountedRef.current) {
+                pollProductAnalytics(productId);
+              }
+            }, 30000); // Poll every 30 seconds
           }
         } else {
           throw new Error("Invalid response format");
         }
       } catch (err) {
         console.error("Failed to fetch analytics:", err);
-        setError("Failed to fetch analytics. Please try again.");
-        toast.error("Failed to fetch analytics");
-        setIsLoading(false);
+        // Continue polling on error, don't show error messages
+        if (pollingRef.current.productTimer) {
+          clearTimeout(pollingRef.current.productTimer);
+        }
+        
+        // Retry after 30 seconds on error
+        pollingRef.current.productTimer = window.setTimeout(() => {
+          if (mountedRef.current) {
+            pollProductAnalytics(productId);
+          }
+        }, 30000);
       }
     },
     [accessToken]
@@ -291,6 +330,8 @@ export default function Results() {
 
   useEffect(() => {
     if (resultsData?.product?.id) {
+      // Reset the start message flag for new analysis
+      pollingRef.current.hasShownStartMessage = false;
       if (pollingRef.current.productTimer) {
         clearTimeout(pollingRef.current.productTimer);
       }
@@ -298,17 +339,17 @@ export default function Results() {
     }
   }, [resultsData, pollProductAnalytics]);
 
-  // Loading state
-  if (isLoading || !resultsData || error) {
+  // Show loading state if still loading or if analysis is not completed
+  if (isLoading || !resultsData || !currentAnalytics || currentAnalytics.status?.toLowerCase() !== "completed") {
     return (
       <Layout>
         <div className="container mx-auto px-4 py-20">
           <div className="flex items-center justify-center min-h-64">
             <div className="text-center">
               <Search className="w-16 h-16 mx-auto text-muted-foreground mb-4 animate-spin" />
-              <h2 className="text-2xl font-bold mb-2">Analyzing...</h2>
+              <h2 className="text-2xl font-bold mb-2">Analysis Started</h2>
               <p className="text-muted-foreground">
-                Please wait while we prepare your results.
+                We are preparing your brand's comprehensive analysis. This strategic process ensures precision in every insight.
               </p>
             </div>
           </div>
@@ -317,30 +358,7 @@ export default function Results() {
     );
   }
 
-  // If no analytics data yet, show the analysis in progress banner
-  if (!currentAnalytics || !currentAnalytics.analytics){
-    return (
-      <Layout>
-        <div className="min-h-screen bg-background">
-          <div className="container mx-auto px-4 py-8">
-            <div className="mb-6 p-4 rounded-md bg-warning/10 border border-warning/20 text-sm">
-              <div className="flex items-center gap-3">
-                <Search className="w-5 h-5 animate-spin text-muted-foreground" />
-                <div>
-                  <div className="font-semibold">Analysis in progress</div>
-                  <div className="text-xs text-muted-foreground">
-                    We are gathering and analyzing AI answers — this usually takes a few seconds to a couple of minutes.
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Layout>
-    );
-  }
-
-  // Extract data for components
+  // Extract data for components (only when analysis is completed)
   const analytics = currentAnalytics.analytics;
   const analysis = analytics?.analysis;
   
@@ -348,28 +366,13 @@ export default function Results() {
   const brandName = analytics?.brand_name || getCleanDomainName(resultsData.website) || "Unknown Brand";
   const brandWebsite = analytics?.brand_website || resultsData.website || "";
   const keywordsAnalyzed = analysis?.overall_insights?.ai_visibility?.distinct_queries_count?.Value || resultsData.search_keywords?.length || 0;
-  const status = currentAnalytics.status || "pending";
+  const status = currentAnalytics.status || "completed";
   const date = currentAnalytics.updated_at || currentAnalytics.date || new Date().toISOString();
 
   return (
     <Layout>
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-8 space-y-8">
-          {/* Show banner when analyzing */}
-          {status !== "completed" && (
-            <div className="mb-6 p-4 rounded-md bg-warning/10 border border-warning/20 text-sm">
-              <div className="flex items-center gap-3">
-                <Search className="w-5 h-5 animate-spin text-muted-foreground" />
-                <div>
-                  <div className="font-semibold">Analysis in progress</div>
-                  <div className="text-xs text-muted-foreground">
-                    We are gathering and analyzing AI answers — this usually takes a few seconds to a couple of minutes.
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
           <BrandHeader 
             brandName={brandName}
             brandWebsite={brandWebsite}
