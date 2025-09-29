@@ -104,8 +104,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       // Split full name on first space
       const parts = fullName.trim().split(' ');
-      const firstName = parts[0] || '';
-      const lastName = parts.slice(1).join(' ') || '';
+      const firstName = parts[0];
+      const lastName = parts.slice(1).join(' ') || ' ';
 
       const payload: RegisterRequest = {
         email,

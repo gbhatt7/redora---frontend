@@ -50,7 +50,7 @@ const Register = () => {
       await register(email, password, fullName);
       toast({
         title: "Account created!",
-        description: "Welcome to AI Search Visibility Checker.",
+        description: "Welcome to GeoRankers.",
       });
       setTimeout(() => {
         navigate("/");
@@ -72,7 +72,7 @@ const Register = () => {
             Create account
           </CardTitle>
           <CardDescription>
-            Join AI search visibility dashboard today
+            Join GeoRankers today
           </CardDescription>
         </CardHeader>
         <CardContent>

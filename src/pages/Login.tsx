@@ -45,7 +45,7 @@ const Login = () => {
             Welcome back
           </CardTitle>
           <CardDescription>
-            Sign in to your AI search visibility dashboard
+            Sign in to your GeoRankers dashboard
           </CardDescription>
         </CardHeader>
         <CardContent>

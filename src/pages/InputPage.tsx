@@ -194,38 +194,40 @@ export default function InputPage() {
       };
 
       console.log("Brand analysis generation started");
-
       const data = await fetchProductsWithKeywords(payload);
-
       console.log("Brand analysis created");
 
-      // ✅ Save keywords from API response (with IDs), only once
+      // ✅ Save keywords once
       saveKeywordsOnce(data);
 
       if (data.product?.id) {
         localStorage.setItem("product_id", data.product.id);
       }
 
-      toast({
-        title: "Analysis started",
-        description:
-          "Your visibility analysis has been initiated successfully.",
-      });
+      // 🚨 Key change: move *all navigation + toast* logic inside setTimeout
+      setTimeout(() => {
+        toast({
+          title: "Analysis started",
+          description:
+            "Your visibility analysis has been initiated successfully.",
+        });
 
-      navigate("/results", {
-        state: {
-          website: trimmedBrand,
-          keywords, // still pass state keywords for UI if needed
-          productId: data.product?.id,
-        },
-      });
+        navigate("/results", {
+          state: {
+            website: trimmedBrand,
+            keywords,
+            productId: data.product?.id,
+          },
+        });
+
+        setIsLoading(false); // stop loading AFTER navigating
+      }, 10000); // 30 sec delay
     } catch (error: any) {
       toast({
         title: "Error",
         description: "Failed to start analysis. Please try again.",
         variant: "destructive",
       });
-    } finally {
       setIsLoading(false);
     }
   };
