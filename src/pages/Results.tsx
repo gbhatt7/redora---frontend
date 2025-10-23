@@ -31,7 +31,7 @@ interface AnalyticsResponse {
   product_id: string;
 }
 
-// Updated AnalyticsData interface to match the provided JSON structure
+// Updated AnalyticsData interface to match the new API structure
 interface AnalyticsData {
   id?: string;
   product_id?: string;
@@ -39,110 +39,70 @@ interface AnalyticsData {
   date?: string;
   status?: string;
   analytics?: {
-    id?: string;
-    type?: string;
-    status?: string;
     brand_name?: string;
     brand_website?: string;
-    model_reported?: {
-      model_name?: string;
-      model_version?: string;
-      report_generated_at?: string;
+    model_name?: string;
+    status?: string;
+    analysis_scope?: {
+      search_keywords?: string[];
+      keywords_or_queries?: string[];
+      date_range?: {
+        from?: string | null;
+        to?: string | null;
+      };
     };
-    analysis?: {
-      overall_insights?: {
-        ai_visibility?: {
-          tier?: string;
-          ai_visibility_score?: { Value: number };
-          geo_score?: { Value: number };
-          weighted_mentions_total?: { Value: number };
-          distinct_queries_count?: { Value: number };
-          calculation_breakdown?: Array<{
-            query: string;
-            weighted_points_for_brand: { Value: number };
-            explanation: string;
-          }>;
-        };
-        brand_mentions?: {
-          level?: string;
-          mentions_count?: { Value: number };
-          total_sources_checked?: { Value: number };
-        };
-        dominant_sentiment?: {
-          sentiment?: string;
-          statement?: string;
-        };
-        summary?: string;
+    ai_visibility?: {
+      weighted_mentions_total?: number;
+      breakdown?: {
+        top_two_mentions?: number;
+        top_five_mentions?: number;
+        later_mentions?: number;
+        calculation?: string;
       };
-      source_analysis?: Array<{
-        category: string;
-        sources: string[];
-        total_citations: { Value: number };
-        visibility: string;
-        cited_by_models: string[];
-        notes: string;
-      }>;
-      competitor_analysis?: {
-        dimensions?: Array<{
-          dimension: string;
-          top_3_competitors: string[];
-          our_brand_position: { Value: number };
-          our_brand_sentiment: string;
-          evidence_snippet: string;
-        }>;
-        table_1_by_dimension?: Array<{
-          dimension: string;
-          top_5_competitors: Array<{
-            brand: string;
-            visibility_count: { Value: number };
-          }>;
-          our_brand_position: { Value: number };
-          our_brand_visibility_count: { Value: number };
-        }>;
-        table_2_brand_profiles?: Array<{
-          brand_name: string;
-          ai_description: string;
-          ai_sentiment: string;
-          sources: string[];
-          evidence_snippets: string[];
-        }>;
-      };
-      content_impact?: {
-        [key: string]: {
-          top_3_brands?: Array<{
-            brand: string;
-            position: { Value: number };
-            visibility: { Value: number };
-          }>;
-          our_brand_position?: {
-            brand: string;
-            position: { Value: number };
-            visibility: { Value: number };
-          };
-        };
-      };
-      recommendations?: Array<{
-        category: string;
-        action: string;
-        timeframe: string;
-        rationale: string;
-        expected_impact: string;
-        effort: string;
-      }>;
+      tier_mapping_method?: string;
+      brand_tier?: string;
+      explanation?: string;
     };
-    raw_model_outputs_mapped?: Array<{
-      query: string;
-      snippet: string;
-      mention_positions: Array<{
-        brand: string;
-        first_position_index: { Value: number };
-      }>;
-      sources_mentioned: string[];
+    sentiment?: {
+      dominant_sentiment?: string;
+      summary?: string;
+    };
+    competitor_visibility_table?: {
+      header?: string[];
+      rows?: any[][];
+    };
+    competitor_sentiment_table?: {
+      header?: string[];
+      rows?: any[][];
+    };
+    brand_mentions?: {
+      total_mentions?: number;
+      queries_with_mentions?: number;
+      total_sources_checked?: number;
+      alignment_with_visibility?: string;
+    };
+    sources_and_content_impact?: {
+      header?: any[];
+      rows?: any[][];
+      depth_notes?: any;
+    };
+    recommendations?: Array<{
+      overall_insight?: string;
+      suggested_action?: string;
+      overall_effort?: string;
+      impact?: string;
     }>;
-    visual_guidance?: {
-      scorecard_note?: string;
-      competitor_table_note?: string;
-      source_chart_note?: string;
+    executive_summary?: {
+      brand_score_and_tier?: string;
+      strengths?: string[];
+      weaknesses?: string[];
+      competitor_positioning?: {
+        leaders?: Array<{ name: string; summary: string }>;
+        mid_tier?: Array<{ name: string; summary: string }>;
+        laggards?: Array<{ name: string; summary: string }>;
+      };
+      prioritized_actions?: string[];
+      conclusion?: string;
     };
   };
   created_at?: string;
@@ -358,69 +318,182 @@ export default function Results() {
     );
   }
 
-  // Extract data for components (only when analysis is completed)
-  const analytics = currentAnalytics.analytics;
-  const analysis = analytics?.analysis;
+  // Extract data from API response
+  const data = currentAnalytics.analytics;
   
-  // Prepare data for BrandHeader
-  const brandName = analytics?.brand_name || getCleanDomainName(resultsData.website) || "Unknown Brand";
-  const brandWebsite = analytics?.brand_website || resultsData.website || "";
-  const keywordsAnalyzed = analysis?.overall_insights?.ai_visibility?.distinct_queries_count?.Value || resultsData.search_keywords?.length || 0;
-  const status = currentAnalytics.status || "completed";
-  const date = currentAnalytics.updated_at || currentAnalytics.date || new Date().toISOString();
+  if (!data) {
+    return (
+      <Layout>
+        <div className="container mx-auto px-4 py-20">
+          <div className="text-center">
+            <p className="text-muted-foreground">No analytics data available</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Transform data to match component interfaces
+  const insights = {
+    ai_visibility: {
+      tier: data.ai_visibility?.brand_tier || "",
+      ai_visibility_score: {
+        Value: data.ai_visibility?.weighted_mentions_total || 0,
+      },
+      weighted_mentions_total: {
+        Value: data.ai_visibility?.weighted_mentions_total || 0,
+      },
+      distinct_queries_count: {
+        Value: data.brand_mentions?.queries_with_mentions || 0,
+      },
+      breakdown: {
+        top_two_mentions: data.ai_visibility?.breakdown?.top_two_mentions || 0,
+        top_five_mentions: data.ai_visibility?.breakdown?.top_five_mentions || 0,
+        later_mentions: data.ai_visibility?.breakdown?.later_mentions || 0,
+        calculation: data.ai_visibility?.breakdown?.calculation,
+      },
+      tier_mapping_method: data.ai_visibility?.tier_mapping_method,
+      explanation: data.ai_visibility?.explanation,
+    },
+    brand_mentions: {
+      total_sources_checked: {
+        Value: data.brand_mentions?.total_sources_checked || 0,
+      },
+    },
+    dominant_sentiment: {
+      sentiment: data.sentiment?.dominant_sentiment || "",
+      statement: data.sentiment?.summary || "",
+    },
+  };
+
+  // Calculate total mentions per brand from sources_and_content_impact table
+  const brandMentionTotals: { [key: string]: number } = {};
+  const contentImpact = data.sources_and_content_impact;
+  
+  if (contentImpact?.header && contentImpact?.rows) {
+    // Extract brand names from header (every 3rd column starting from index 1)
+    const brandNames: string[] = [];
+    for (let i = 1; i < contentImpact.header.length - 2; i += 3) {
+      brandNames.push(contentImpact.header[i] as string);
+    }
+
+    // Calculate totals for each brand (sum of mentions across all rows)
+    brandNames.forEach((brand, index) => {
+      let total = 0;
+      contentImpact.rows.forEach((row) => {
+        const mentions = row[1 + index * 3 + 1] as number; // Mentions column for each brand
+        total += mentions;
+      });
+      brandMentionTotals[brand] = total;
+    });
+  }
+
+  // Find top brand and its total
+  let topBrand = "";
+  let topBrandTotal = 0;
+  Object.entries(brandMentionTotals).forEach(([brand, total]) => {
+    if (total > topBrandTotal) {
+      topBrandTotal = total;
+      topBrand = brand;
+    }
+  });
+
+  // Get your brand's total (last brand in the list)
+  const yourBrandTotal = Object.values(brandMentionTotals)[Object.values(brandMentionTotals).length - 1] || 0;
 
   return (
     <Layout>
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-8 space-y-8">
-          <BrandHeader 
-            brandName={brandName}
-            brandWebsite={brandWebsite}
-            keywordsAnalyzed={keywordsAnalyzed}
-            status={status}
-            date={date}
+          <BrandHeader
+            brandName={data.brand_name || ""}
+            brandWebsite={data.brand_website || ""}
+            keywordsAnalyzed={data.analysis_scope?.search_keywords || []}
+            status={data.status || ""}
+            date={currentAnalytics.updated_at || currentAnalytics.created_at || ""}
+            modelName={data.model_name || ""}
           />
-          
-          {analysis?.overall_insights && (
-            <>
-            <OverallInsights insights={analysis.overall_insights} />
-            <div className="border-t border-foreground my-12" />
-            </>
-          )}
-          
-          {analysis?.source_analysis && (
-            <>
-            <SourceAnalysis sources={analysis.source_analysis} />
-            <div className="border-t border-foreground my-12" />
-            </>
-          )}
-          
-          {analysis?.competitor_analysis && (
-            <>
-            <CompetitorAnalysis analysis={analysis.competitor_analysis} />
-            <div className="border-t border-foreground my-12" />
-            </>
-          )}
-          
-          {analysis?.content_impact && (
-            <>
-            <ContentImpact contentImpact={analysis.content_impact} />
-            <div className="border-t border-foreground my-12" />
-            </>
-          )}
-          
-          {analysis?.recommendations && (
-            <>
-            <Recommendations recommendations={analysis.recommendations} />
-            <div className="border-t border-foreground my-12" />
-            </>
-          )}
-          
-          {analytics?.raw_model_outputs_mapped && (
-            <>
-            <QueryAnalysis rawOutputs={analytics.raw_model_outputs_mapped} />
-            <div className="border-t border-foreground my-8" />
-            </>
+
+          <OverallInsights
+            insights={insights}
+            executiveSummary={data.executive_summary ? {
+              brand_score_and_tier: data.executive_summary.brand_score_and_tier || "",
+              strengths: data.executive_summary.strengths || [],
+              weaknesses: data.executive_summary.weaknesses || [],
+              competitor_positioning: {
+                leaders: data.executive_summary.competitor_positioning?.leaders || [],
+                mid_tier: data.executive_summary.competitor_positioning?.mid_tier || [],
+                laggards: data.executive_summary.competitor_positioning?.laggards || [],
+              },
+              prioritized_actions: data.executive_summary.prioritized_actions || [],
+              conclusion: data.executive_summary.conclusion || "",
+            } : undefined}
+            yourBrandTotal={yourBrandTotal}
+            topBrand={topBrand}
+            topBrandTotal={topBrandTotal}
+          />
+
+          {data.sources_and_content_impact &&
+            data.sources_and_content_impact.header &&
+            data.sources_and_content_impact.rows && (
+              <SourceAnalysis
+                contentImpact={{
+                  header: data.sources_and_content_impact.header,
+                  rows: data.sources_and_content_impact.rows,
+                  depth_notes: data.sources_and_content_impact.depth_notes,
+                }}
+                brandName={data.brand_name || ""}
+              />
+            )}
+
+          {(data.competitor_visibility_table?.header &&
+            data.competitor_visibility_table?.rows) ||
+          (data.competitor_sentiment_table?.header &&
+            data.competitor_sentiment_table?.rows) ? (
+            <CompetitorAnalysis
+              brandName={data.brand_name || ""}
+              analysis={{
+                competitor_visibility_table: data.competitor_visibility_table?.header &&
+                  data.competitor_visibility_table?.rows
+                  ? {
+                      header: data.competitor_visibility_table.header,
+                      rows: data.competitor_visibility_table.rows,
+                    }
+                  : undefined,
+                competitor_sentiment_table: data.competitor_sentiment_table?.header &&
+                  data.competitor_sentiment_table?.rows
+                  ? {
+                      header: data.competitor_sentiment_table.header,
+                      rows: data.competitor_sentiment_table.rows,
+                    }
+                  : undefined,
+              }}
+            />
+          ) : null}
+
+          {data.sources_and_content_impact &&
+            data.sources_and_content_impact.header &&
+            data.sources_and_content_impact.rows &&
+            data.sources_and_content_impact.rows.length > 0 && (
+              <ContentImpact
+                brandName={data.brand_name || ""}
+                contentImpact={{
+                  header: data.sources_and_content_impact.header,
+                  rows: data.sources_and_content_impact.rows,
+                  depth_notes: data.sources_and_content_impact.depth_notes,
+                }}
+              />
+            )}
+
+          {data.recommendations && data.recommendations.length > 0 && (
+            <Recommendations
+              recommendations={data.recommendations.map(rec => ({
+                overall_insight: rec.overall_insight || "",
+                suggested_action: rec.suggested_action || "",
+                overall_effort: rec.overall_effort || "",
+                impact: rec.impact || "",
+              }))}
+            />
           )}
         </div>
       </div>

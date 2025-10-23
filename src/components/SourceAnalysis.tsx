@@ -1,158 +1,275 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import { Database, Users, FileText } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as ChartTooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
+import { Info } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { TOOLTIP_CONTENT } from "@/lib/formulas";
 
 interface SourceAnalysisProps {
-  sources: Array<{
-    category: string;
-    sources: string[];
-    total_citations: { Value: number };
-    visibility: string;
-    cited_by_models: string[];
-    notes: string;
-  }>;
+  contentImpact: {
+    header: string[];
+    rows: (string | number | string[])[][];
+    depth_notes?: {
+      [brand: string]: {
+        [source: string]: {
+          insight: string;
+          pages_used: string[];
+        };
+      };
+    };
+  };
+  brandName: string;
 }
 
 const getVisibilityColor = (visibility: string) => {
   switch (visibility.toLowerCase()) {
-    case 'high':
-      return 'bg-success text-success-foreground';
-    case 'medium':
-      return 'bg-warning text-warning-foreground';
-    case 'low':
-      return 'bg-destructive text-destructive-foreground';
+    case "high":
+      return "bg-success text-success-foreground";
+    case "medium":
+      return "bg-medium-neutral text-medium-neutral-foreground";
+    case "low":
+    case "absent":
+      return "bg-destructive text-destructive-foreground";
     default:
-      return 'bg-secondary text-secondary-foreground';
+      return "bg-secondary text-secondary-foreground";
   }
 };
 
-const getCategoryIcon = (category: string) => {
-  switch (category.toLowerCase()) {
-    case 'analyst platforms':
-      return <Database className="h-5 w-5 text-primary" />;
-    case 'review platforms':
-      return <Users className="h-5 w-5 text-primary" />;
-    case 'comparison blogs':
-      return <FileText className="h-5 w-5 text-primary" />;
-    default:
-      return <FileText className="h-5 w-5 text-primary" />;
-  }
+const getMentionTier = (ratio: number) => {
+  if (ratio >= 70) return "High";
+  if (ratio >= 40) return "Medium";
+  if (ratio >= 0) return "Low";
+  return "N/A";
 };
 
-export const SourceAnalysis = ({ sources }: SourceAnalysisProps) => {
-  const chartData = sources.map(source => ({
-    category: source.category,
-    citations: source.total_citations.Value,
-    visibility: source.visibility
+export const SourceAnalysis = ({
+  contentImpact,
+  brandName,
+}: SourceAnalysisProps) => {
+  const brandColumnIndex = contentImpact.header.findIndex(
+    (h) => h === brandName
+  );
+
+  const sources = contentImpact.rows.map((row) => {
+    const sourceName = row[0] as string;
+    const mentions = Number(row[brandColumnIndex + 1] || 0);
+
+    // Find max mentions in this row across all brands
+    const brandNames: string[] = [];
+    for (let i = 1; i < contentImpact.header.length - 2; i += 3) {
+      brandNames.push(contentImpact.header[i] as string);
+    }
+
+    const mentionCounts: number[] = brandNames.map((_, i) =>
+      Number(row[1 + i * 3 + 1] || 0)
+    );
+    const maxMentions = Math.max(...mentionCounts);
+
+    const mentionRatio = maxMentions > 0 ? (mentions / maxMentions) * 100 : 0;
+    const tier = getMentionTier(mentionRatio);
+    const depthNote = contentImpact.depth_notes?.[brandName]?.[sourceName];
+
+    const rowPagesUsed = Array.isArray(row[row.length - 1])
+      ? row[row.length - 1]
+      : [];
+
+    const pagesUsed =
+      rowPagesUsed.length > 0 ? rowPagesUsed : depthNote?.pages_used || [];
+
+    // Split names by space, slash, or backslash
+    const shortCategory = sourceName.split(/[\s\\/]+/).join("\n");
+
+    return {
+      category: sourceName,
+      shortCategory,
+      mentions,
+      mentionRatio,
+      score: tier,
+      insight: depthNote?.insight || "",
+      pages_used: pagesUsed,
+    };
+  });
+
+  const chartData = sources.map((source) => ({
+    category: source.shortCategory,
+    citations: source.mentions,
+    visibility: source.score,
   }));
 
   const getBarColor = (visibility: string) => {
     switch (visibility.toLowerCase()) {
-      case 'high':
-        return 'hsl(var(--success))';
-      case 'medium':
-        return 'hsl(var(--warning))';
-      case 'low':
-        return 'hsl(var(--destructive))';
+      case "high":
+        return "hsl(var(--success))";
+      case "medium":
+        return "hsl(var(--medium-neutral))";
+      case "low":
+        return "hsl(var(--destructive))";
+      case "absent":
+        return "hsl(var(--destructive))";
       default:
-        return 'hsl(var(--primary))';
+        return "hsl(var(--primary))";
     }
   };
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-foreground">Source Analysis</h2>
-      
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Citation Distribution by Source Category</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis 
-                dataKey="category" 
-                stroke="hsl(var(--muted-foreground))" 
-                fontSize={12}
-                tickFormatter={(value) => value.split(' ')[0]}
-              />
-              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: 'hsl(var(--card))', 
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '6px'
-                }} 
-              />
-              <Bar 
-                dataKey="citations" 
-                radius={[4, 4, 0, 0]}
-              >
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={getBarColor(entry.visibility)} />
+    <TooltipProvider>
+      <div className="space-y-6">
+        <div className="flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-foreground">
+            Source Analysis
+          </h2>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Info className="h-5 w-5 text-muted-foreground cursor-help" />
+            </TooltipTrigger>
+            <TooltipContent className="max-w-sm">
+              <p className="text-sm mb-2">
+                {TOOLTIP_CONTENT.sourceAnalysis.description}
+              </p>
+              <p className="text-xs">
+                {TOOLTIP_CONTENT.sourceAnalysis.calculation}
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+
+        {/* Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">
+              Citation Distribution by Source Category
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={350}>
+              <BarChart data={chartData} margin={{ bottom: 60, top: 20 }}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="hsl(var(--border))"
+                />
+                <XAxis
+                  dataKey="category"
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={11}
+                  interval={0}
+                  tick={({ x, y, payload }) => (
+                    <g transform={`translate(${x},${y + 5})`}>
+                      {payload.value.split("\n").map((line, index) => (
+                        <text
+                          key={index}
+                          x={0}
+                          y={index * 11}
+                          textAnchor="middle"
+                          fontSize={10}
+                          fill="hsl(var(--foreground))"
+                          fontWeight="500"
+                        >
+                          {line}
+                        </text>
+                      ))}
+                    </g>
+                  )}
+                />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                <ChartTooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "6px",
+                  }}
+                />
+                <Bar dataKey="citations" radius={[4, 4, 0, 0]}>
+                  {chartData.map((entry, index) => (
+                    <Cell key={index} fill={getBarColor(entry.visibility)} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">
+              Source Details for{" "}
+              <span className="font-bold text-primary">{brandName}</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Source</TableHead>
+                  <TableHead className="text-center">Mentions</TableHead>
+                  <TableHead className="text-center">Tier</TableHead>
+                  <TableHead>Insights</TableHead>
+                  <TableHead>Pages Used</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sources.map((source, index) => (
+                  <TableRow key={index}>
+                    <TableCell className="font-medium break-words whitespace-pre-line">
+                      {source.shortCategory}
+                    </TableCell>
+                    <TableCell className="text-center font-semibold">
+                      {source.mentions}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge
+                        className={getVisibilityColor(source.score)}
+                        variant="secondary"
+                      >
+                        {source.score}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {source.insight || "No insights available"}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {source.pages_used.length > 0 &&
+                      !source.pages_used.includes("Absent") ? (
+                        <ul className="list-disc list-inside space-y-1">
+                          {source.pages_used.map((page, idx) => (
+                            <li key={idx}>{page}</li>
+                          ))}
+                        </ul>
+                      ) : source.pages_used.includes("Absent") ? (
+                        "No listed pages"
+                      ) : (
+                        "No pages listed"
+                      )}
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {sources.map((source, index) => (
-          <Card key={index} className={`border-2 ${
-            source.visibility.toLowerCase() === 'high' ? 'border-success shadow-success/20 shadow-lg' :
-            source.visibility.toLowerCase() === 'medium' ? 'border-warning shadow-warning/20 shadow-lg' :
-            source.visibility.toLowerCase() === 'low' ? 'border-destructive shadow-destructive/20 shadow-lg' :
-            'border-border'
-          }`}>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  {getCategoryIcon(source.category)}
-                  {source.category}
-                </CardTitle>
-                <Badge className={getVisibilityColor(source.visibility)} variant="secondary">
-                  {source.visibility}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-primary">{source.total_citations.Value}</div>
-                <div className="text-sm text-muted-foreground">Total Citations</div>
-              </div>
-              
-              <div>
-                <h4 className="font-semibold text-sm mb-2">Key Sources</h4>
-                <div className="flex flex-wrap gap-1">
-                  {source.sources.map((src, srcIndex) => (
-                    <Badge key={srcIndex} variant="outline" className="text-xs">
-                      {src}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-semibold text-sm mb-2">Models</h4>
-                <div className="flex flex-wrap gap-1">
-                  {source.cited_by_models.map((model, modelIndex) => (
-                    <Badge key={modelIndex} variant="secondary" className="text-xs">
-                      {model}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <p className="text-sm text-muted-foreground">{source.notes}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       </div>
-    </div>
+    </TooltipProvider>
   );
 };
