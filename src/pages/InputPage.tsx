@@ -222,9 +222,9 @@ export default function InputPage() {
 
         setTimeout(() => {
           toast({
-            title: "Analysis started",
-            description:
-              "Your new visibility analysis has been initiated successfully.",
+            title: "Analysis in Progress",
+            description: "Your analysis is now in progress. This process typically takes around 20 minutes to complete. You'll be notified once it's ready.",
+            duration: 10000,
           });
 
           navigate("/results", {
@@ -261,9 +261,9 @@ export default function InputPage() {
 
         setTimeout(() => {
           toast({
-            title: "Analysis started",
-            description:
-              "Your visibility analysis has been initiated successfully.",
+            title: "Analysis in Progress",
+            description: "Your analysis is now in progress. This process typically takes around 20 minutes to complete. You'll be notified once it's ready.",
+            duration: 10000,
           });
 
           navigate("/results", {

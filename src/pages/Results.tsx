@@ -9,9 +9,9 @@ import { CompetitorAnalysis } from "@/components/CompetitorAnalysis";
 import { ContentImpact } from "@/components/ContentImpact";
 import { Recommendations } from "@/components/Recommendations";
 import { QueryAnalysis } from "@/components/QueryAnalysis";
-import { Search, Plus } from "lucide-react";
+import { Search, Plus, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 import { getProductAnalytics } from "@/apiHelpers";
 
 interface InputStateAny {
@@ -124,6 +124,7 @@ export default function Results() {
   const [error, setError] = useState<string | null>(null);
 
   const { user, products } = useAuth();
+  const { toast } = useToast();
   const accessToken = localStorage.getItem("access_token") || "";
   const navigate = useNavigate();
   const location = useLocation();
@@ -143,18 +144,6 @@ export default function Results() {
         disableWebsiteEdit: true,
       },
     });
-  };
-
-  const getCleanDomainName = (url?: string) => {
-    if (!url) return "";
-    try {
-      const cleanUrl = url.replace(/^https?:\/\//, "");
-      const withoutWww = cleanUrl.replace(/^www\./, "");
-      const domain = withoutWww.split('/')[0];
-      return domain;
-    } catch {
-      return url;
-    }
   };
 
   // Parse and normalize location.state
@@ -229,6 +218,10 @@ export default function Results() {
           const analysisToUse = completedAnalysis || res.analytics[0];
           
           if (analysisToUse) {
+            // Check if this is a new analysis by comparing dates
+            const storedDate = localStorage.getItem("last_analysis_date");
+            const currentDate = analysisToUse.date || analysisToUse.updated_at || analysisToUse.created_at;
+            
             setCurrentAnalytics(analysisToUse);
             
             // Update localStorage with latest analytics data
@@ -240,47 +233,69 @@ export default function Results() {
               localStorage.setItem("keywords", JSON.stringify(keywords.map(k => ({ keyword: k }))));
               localStorage.setItem("keyword_count", keywords.length.toString());
             }
+            
+            // Store the full analytics response in localStorage
+            localStorage.setItem("last_analysis_data", JSON.stringify(res));
           
-          // Check the status to determine if we should stop polling
-          const status = analysisToUse.status?.toLowerCase() || "";
+            // Check the status to determine if we should stop polling
+            const status = analysisToUse.status?.toLowerCase() || "";
           
-          if (status === "completed") {
-            // Analysis is complete, stop polling and loading
-            setIsLoading(false);
-            setError(null);
-            
-            // Clear any existing timer
-            if (pollingRef.current.productTimer) {
-              clearTimeout(pollingRef.current.productTimer);
-            }
-          } else if (status === "failed") {
-            // Analysis failed, stop polling but don't show error
-            setIsLoading(false);
-            setError(null);
-            
-            // Clear any existing timer
-            if (pollingRef.current.productTimer) {
-              clearTimeout(pollingRef.current.productTimer);
-            }
-          } else {
-            // Analysis is still in progress, continue polling every 30 seconds
-            setError(null);
-            
-            // Only show the "analysis started" message once
-            if (!pollingRef.current.hasShownStartMessage && mountedRef.current) {
-              pollingRef.current.hasShownStartMessage = true;
-            }
-            
-            if (pollingRef.current.productTimer) {
-              clearTimeout(pollingRef.current.productTimer);
-            }
-            
-            pollingRef.current.productTimer = window.setTimeout(() => {
-              if (mountedRef.current) {
-                pollProductAnalytics(productId);
+            if (status === "completed") {
+              // Check if this is a new completed analysis
+              if (storedDate && currentDate && storedDate !== currentDate) {
+                // New analysis completed - show success toast
+                toast({
+                  title: "Analysis Complete",
+                  description: "Your new analysis is ready! Please refresh the page to see the updated insights.",
+                  duration: 10000,
+                });
+                localStorage.setItem("last_analysis_date", currentDate);
+              } else if (!storedDate && currentDate) {
+                // First time storing the date
+                localStorage.setItem("last_analysis_date", currentDate);
               }
-            }, 30000); // Poll every 30 seconds
-          }
+              
+              // Analysis is complete, stop polling and loading
+              setIsLoading(false);
+              setError(null);
+              
+              // Clear any existing timer
+              if (pollingRef.current.productTimer) {
+                clearTimeout(pollingRef.current.productTimer);
+              }
+            } else if (status === "failed") {
+              // Analysis failed, stop polling but don't show error
+              setIsLoading(false);
+              setError(null);
+              
+              // Clear any existing timer
+              if (pollingRef.current.productTimer) {
+                clearTimeout(pollingRef.current.productTimer);
+              }
+            } else {
+              // Analysis is still in progress, continue polling every 30 seconds
+              setError(null);
+              
+              // Only show the "analysis started" message once
+              if (!pollingRef.current.hasShownStartMessage && mountedRef.current) {
+                toast({
+                  title: "Analysis in Progress",
+                  description: "Your analysis is now in progress. This process typically takes around 20 minutes to complete. You'll be notified once it's ready.",
+                  duration: 10000, // Keep it visible until dismissed
+                });
+                pollingRef.current.hasShownStartMessage = true;
+              }
+              
+              if (pollingRef.current.productTimer) {
+                clearTimeout(pollingRef.current.productTimer);
+              }
+              
+              pollingRef.current.productTimer = window.setTimeout(() => {
+                if (mountedRef.current) {
+                  pollProductAnalytics(productId);
+                }
+              }, 30000); // Poll every 30 seconds
+            }
           } else {
             // No analysis data found, continue polling
             if (pollingRef.current.productTimer) {
@@ -427,6 +442,10 @@ export default function Results() {
   // Get your brand's total (last brand in the list)
   const yourBrandTotal = Object.values(brandMentionTotals)[Object.values(brandMentionTotals).length - 1] || 0;
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
     <Layout>
       <div className="min-h-screen bg-background">
@@ -440,14 +459,15 @@ export default function Results() {
             modelName={data.model_name || ""}
           />
 
-          {/* New Analysis Button */}
-          <div className="flex justify-end">
+          {/* New Analysis Button - Centered and Prominent */}
+          <div className="flex justify-center">
             <Button
               onClick={handleNewAnalysis}
-              variant="outline"
-              className="gap-2"
+              variant="default"
+              size="lg"
+              className="gap-2 text-lg px-12 shadow-elevated hover:shadow-glow"
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-5 w-5" />
               New Analysis
             </Button>
           </div>
@@ -533,6 +553,18 @@ export default function Results() {
               }))}
             />
           )}
+
+          {/* Download Report Button at the end */}
+          <div className="flex justify-center pt-8">
+            <Button
+              onClick={handlePrint}
+              size="lg"
+              className="gap-2"
+            >
+              <Printer className="h-5 w-5" />
+              Download Report
+            </Button>
+          </div>
         </div>
       </div>
     </Layout>

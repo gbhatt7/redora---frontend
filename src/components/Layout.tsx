@@ -11,6 +11,8 @@ import { Star, Search, BarChart3, User, LogOut, RefreshCw } from "lucide-react";
 import { useState, useEffect } from "react";
 import { generateWithKeywords, getProductAnalytics } from "@/apiHelpers";
 import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
+import { title } from "process";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -23,6 +25,7 @@ export const Layout = ({ children, showNavigation = true }: LayoutProps) => {
   const navigate = useNavigate();
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [productId, setProductId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     const storedProductId = localStorage.getItem("product_id");
@@ -51,21 +54,25 @@ export const Layout = ({ children, showNavigation = true }: LayoutProps) => {
         // Call generate with keywords API
         await generateWithKeywords(productId, keywords);
         
-        toast.success("Analysis regeneration started", {
-          description: "Your analysis is being regenerated. Please wait..."
+        toast({
+          title:"Analysis in Progress",
+          description: "Your analysis is being regenerated. This process typically takes around 20 minutes to complete. You'll be notified once it's ready.",
+          duration: 10000,
         });
-        
+
         // Refresh the page or navigate to results
         setTimeout(() => {
           window.location.reload();
-        }, 2000);
+        }, 20000);
       } else {
-        toast.error("Error", {
+        toast({
+          title: "Error",
           description: "Could not find keywords from previous analysis"
         });
       }
     } catch (error) {
-      toast.error("Error", {
+      toast({
+        title: "Error",
         description: "Failed to regenerate analysis. Please try again."
       });
     } finally {
