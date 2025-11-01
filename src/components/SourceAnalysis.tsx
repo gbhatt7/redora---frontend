@@ -91,11 +91,10 @@ export const SourceAnalysis = ({
     const tier = getMentionTier(mentionRatio);
     const depthNote = contentImpact.depth_notes?.[brandName]?.[sourceName];
 
-    const rowPagesUsed = Array.isArray(row[row.length - 1])
-      ? row[row.length - 1]
-      : [];
+    const lastCell = row[row.length - 1];
+    const rowPagesUsed: string[] = Array.isArray(lastCell) ? lastCell : [];
 
-    const pagesUsed =
+    const pagesUsed: string[] =
       rowPagesUsed.length > 0 ? rowPagesUsed : depthNote?.pages_used || [];
 
     // Split names by space, slash, or backslash
@@ -250,14 +249,17 @@ export const SourceAnalysis = ({
                       {source.insight || "No insights available"}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
-                      {source.pages_used.length > 0 &&
+                      {Array.isArray(source.pages_used) && source.pages_used.length > 0 &&
                       !source.pages_used.includes("Absent") ? (
-                        <ul className="list-disc list-inside space-y-1">
+                        <ul className="space-y-1 pl-0">
                           {source.pages_used.map((page, idx) => (
-                            <li key={idx}>{page}</li>
+                            <li key={idx} className="flex items-start gap-2">
+                              <span className="text-primary mt-1">•</span>
+                              <span className="flex-1">{page}</span>
+                            </li>
                           ))}
                         </ul>
-                      ) : source.pages_used.includes("Absent") ? (
+                      ) : Array.isArray(source.pages_used) && source.pages_used.includes("Absent") ? (
                         "No listed pages"
                       ) : (
                         "No pages listed"

@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -24,6 +25,88 @@ import { getProductsByApplication } from "@/apiHelpers";
 const Index = () => {
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
+  // Initialize hasProduct from localStorage synchronously to avoid flash of wrong text
+  const [hasProduct, setHasProduct] = useState(() => {
+    const productId = localStorage.getItem("product_id");
+    return !!productId;
+  });
+  const [checkingProduct, setCheckingProduct] = useState(false);
+  const [hasChecked, setHasChecked] = useState(false);
+
+  // Check if user has product on mount - only redirect on initial app load
+  useEffect(() => {
+    const checkUserAndProduct = async () => {
+      if (isLoading || hasChecked) return;
+      
+      // Only auto-redirect if this is initial app load (not navigating from within app)
+      const hasNavigatedWithinApp = sessionStorage.getItem("app_initialized");
+      
+      if (!user) {
+        setHasChecked(true);
+        sessionStorage.setItem("app_initialized", "true");
+        return;
+      }
+
+      // If user is logged in and app is already initialized, don't auto-redirect
+      if (hasNavigatedWithinApp) {
+        setHasChecked(true);
+        return;
+      }
+
+      setCheckingProduct(true);
+
+      try {
+        const accessToken = localStorage.getItem("access_token") || "";
+        const applicationId = localStorage.getItem("application_id") || "";
+        
+        if (!applicationId) {
+          setHasProduct(false);
+          setCheckingProduct(false);
+          setHasChecked(true);
+          sessionStorage.setItem("app_initialized", "true");
+          navigate("/input");
+          return;
+        }
+        
+        const products = await getProductsByApplication(applicationId, accessToken);
+        
+        if (products && Array.isArray(products) && products.length > 0) {
+          setHasProduct(true);
+          const firstProduct = products[0];
+          
+          // Store product data
+          localStorage.setItem("product_id", firstProduct.id);
+          localStorage.setItem("keywords", JSON.stringify(firstProduct.search_keywords || []));
+          localStorage.setItem("keyword_count", (firstProduct.search_keywords || []).length.toString());
+          
+          setHasChecked(true);
+          sessionStorage.setItem("app_initialized", "true");
+          // Navigate to results page
+          navigate("/results", {
+            state: {
+              website: firstProduct.website || firstProduct.name,
+              keywords: firstProduct.search_keywords || [],
+              productId: firstProduct.id,
+            },
+          });
+        } else {
+          setHasProduct(false);
+          setHasChecked(true);
+          sessionStorage.setItem("app_initialized", "true");
+          navigate("/input");
+        }
+      } catch (error) {
+        setHasProduct(false);
+        setHasChecked(true);
+        sessionStorage.setItem("app_initialized", "true");
+        navigate("/input");
+      } finally {
+        setCheckingProduct(false);
+      }
+    };
+
+    checkUserAndProduct();
+  }, [user, isLoading, hasChecked, navigate]);
 
   const handleCheckVisibility = async () => {
     if (!user) {
@@ -103,7 +186,7 @@ const Index = () => {
   ];
 
   // ✅ Handle loading state to prevent blank page
-  if (isLoading) {
+  if (isLoading || checkingProduct) {
     return (
       <Layout>
         <div className="flex items-center justify-center min-h-screen text-lg">
@@ -141,7 +224,7 @@ const Index = () => {
                     className="text-lg px-8 w-full sm:w-auto"
                     onClick={handleCheckVisibility}
                   >
-                    New Analysis
+                    {hasProduct ? "See your Brand Analysis" : "Analyze your Brand"}
                     <ArrowRight className="w-5 h-5 ml-2" />
                   </Button>
                 ) : (
@@ -264,7 +347,7 @@ const Index = () => {
                   onClick={handleCheckVisibility}
                 >
                   <Search className="w-5 h-5 mr-2" />
-                  {user ? "New Analysis" : "Check Your Visibility"}
+                  {user ? (hasProduct ? "See your Brand Analysis" : "Analyze your Brand") : "Check Your Visibility"}
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
                 {!user && (

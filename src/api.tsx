@@ -8,6 +8,7 @@ export const API_ENDPOINTS = {
 
   // Products
   createProductWithKeywords: `${BASE_URL}/products/with-keywords`,
+  generateWithKeywords: `${BASE_URL}/products/generate/with-keywords`,
 
   // Analytics
   getKeywordAnalytics: (keywordId: string, date: string) =>
@@ -18,5 +19,7 @@ export const API_ENDPOINTS = {
 
   // Product by Application ID
   getProductsByApplication: (applicationId: string) =>
-    `${BASE_URL}/products/application/${applicationId}`
+    `${BASE_URL}/products/application/${applicationId}`,
+
+  generateNewAnalysis: `${BASE_URL}/products/generate/with-keywords`
 };

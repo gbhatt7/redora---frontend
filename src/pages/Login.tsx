@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff } from "lucide-react";
+import { getProductsByApplication } from "@/apiHelpers";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -20,13 +21,46 @@ const Login = () => {
     e.preventDefault();
     try {
       await login(email, password);
+      
       toast({
         title: "Welcome back!",
         description: "You've successfully logged in.",
       });
-      setTimeout(() => {
-        navigate("/");
-      }, 100);
+
+      // Use the same logic as Index page
+      const accessToken = localStorage.getItem("access_token") || "";
+      const applicationId = localStorage.getItem("application_id") || "";
+  
+      if (!applicationId) {
+        navigate("/input");
+        return;
+      }
+  
+      const products = await getProductsByApplication(applicationId, accessToken);
+  
+      if (products && Array.isArray(products) && products.length > 0) {
+        const firstProduct = products[0];
+  
+        // Store product id and keywords
+        localStorage.setItem("product_id", firstProduct.id);
+        localStorage.setItem("keywords", JSON.stringify(firstProduct.search_keywords || []));
+        localStorage.setItem("keyword_count", (firstProduct.search_keywords || []).length.toString());
+        
+        // Mark app as initialized to prevent auto-redirect on logo click
+        sessionStorage.setItem("app_initialized", "true");
+        
+        navigate("/results", {
+          state: {
+            website: firstProduct.website || firstProduct.name,
+            keywords: firstProduct.search_keywords || [],
+            productId: firstProduct.id,
+          },
+        });
+      } else {
+        // No products → go to input page
+        sessionStorage.setItem("app_initialized", "true");
+        navigate("/input");
+      }
     } catch (error) {
       toast({
         title: "Login failed",

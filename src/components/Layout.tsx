@@ -7,7 +7,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Star, Search, BarChart3, User, LogOut } from "lucide-react";
+import { Star, Search, BarChart3, User, LogOut, RefreshCw } from "lucide-react";
+import { useState, useEffect } from "react";
+import { generateWithKeywords, getProductAnalytics } from "@/apiHelpers";
+import { toast } from "sonner";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -18,10 +21,56 @@ export const Layout = ({ children, showNavigation = true }: LayoutProps) => {
   const location = useLocation();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [productId, setProductId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const storedProductId = localStorage.getItem("product_id");
+    setProductId(storedProductId);
+  }, [location]);
 
   const handleLogout = () => {
     logout();
     navigate("/");
+  };
+
+  const handleRegenerateAnalysis = async () => {
+    if (!productId) return;
+
+    setIsRegenerating(true);
+    try {
+      const accessToken = localStorage.getItem("access_token") || "";
+      const today = new Date().toISOString().split("T")[0];
+      
+      // Fetch current analytics to get keywords
+      const analyticsData = await getProductAnalytics(productId, today, accessToken);
+      
+      if (analyticsData?.analytics?.[0]?.analytics?.analysis_scope?.search_keywords) {
+        const keywords = analyticsData.analytics[0].analytics.analysis_scope.search_keywords;
+        
+        // Call generate with keywords API
+        await generateWithKeywords(productId, keywords);
+        
+        toast.success("Analysis regeneration started", {
+          description: "Your analysis is being regenerated. Please wait..."
+        });
+        
+        // Refresh the page or navigate to results
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      } else {
+        toast.error("Error", {
+          description: "Could not find keywords from previous analysis"
+        });
+      }
+    } catch (error) {
+      toast.error("Error", {
+        description: "Failed to regenerate analysis. Please try again."
+      });
+    } finally {
+      setIsRegenerating(false);
+    }
   };
 
   return (
@@ -73,6 +122,16 @@ export const Layout = ({ children, showNavigation = true }: LayoutProps) => {
                             {user.first_name} {user.last_name}
                           </span>
                         </DropdownMenuItem>
+                        {productId && (
+                          <DropdownMenuItem
+                            onClick={handleRegenerateAnalysis}
+                            disabled={isRegenerating}
+                            className="flex items-center space-x-2"
+                          >
+                            <RefreshCw className={`w-4 h-4 ${isRegenerating ? 'animate-spin' : ''}`} />
+                            <span>Regenerate Analysis</span>
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem
                           onClick={handleLogout}
                           className="flex items-center space-x-2 text-destructive focus:text-destructive"

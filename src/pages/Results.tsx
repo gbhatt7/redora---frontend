@@ -9,7 +9,8 @@ import { CompetitorAnalysis } from "@/components/CompetitorAnalysis";
 import { ContentImpact } from "@/components/ContentImpact";
 import { Recommendations } from "@/components/Recommendations";
 import { QueryAnalysis } from "@/components/QueryAnalysis";
-import { Search } from "lucide-react";
+import { Search, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { getProductAnalytics } from "@/apiHelpers";
 
@@ -122,12 +123,27 @@ export default function Results() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const { user } = useAuth();
+  const { user, products } = useAuth();
   const accessToken = localStorage.getItem("access_token") || "";
   const navigate = useNavigate();
   const location = useLocation();
   const pollingRef = useRef<{ productTimer?: number; hasShownStartMessage?: boolean }>({});
   const mountedRef = useRef(true);
+
+  const handleNewAnalysis = () => {
+    // Get the current product's website from products or analytics
+    const currentWebsite = products[0]?.website || currentAnalytics?.analytics?.brand_website || "";
+    const productId = products[0]?.id || resultsData?.product.id || "";
+    
+    navigate("/input", {
+      state: {
+        prefillWebsite: currentWebsite,
+        productId: productId,
+        isNewAnalysis: true,
+        disableWebsiteEdit: true,
+      },
+    });
+  };
 
   const getCleanDomainName = (url?: string) => {
     if (!url) return "";
@@ -214,6 +230,16 @@ export default function Results() {
           
           if (analysisToUse) {
             setCurrentAnalytics(analysisToUse);
+            
+            // Update localStorage with latest analytics data
+            if (res.product_id) {
+              localStorage.setItem("product_id", res.product_id);
+            }
+            if (analysisToUse.analytics?.analysis_scope?.search_keywords) {
+              const keywords = analysisToUse.analytics.analysis_scope.search_keywords;
+              localStorage.setItem("keywords", JSON.stringify(keywords.map(k => ({ keyword: k }))));
+              localStorage.setItem("keyword_count", keywords.length.toString());
+            }
           
           // Check the status to determine if we should stop polling
           const status = analysisToUse.status?.toLowerCase() || "";
@@ -410,9 +436,21 @@ export default function Results() {
             brandWebsite={data.brand_website || ""}
             keywordsAnalyzed={data.analysis_scope?.search_keywords || []}
             status={data.status || ""}
-            date={currentAnalytics.updated_at || currentAnalytics.created_at || ""}
+            date={currentAnalytics.date || currentAnalytics.updated_at || currentAnalytics.created_at || ""}
             modelName={data.model_name || ""}
           />
+
+          {/* New Analysis Button */}
+          <div className="flex justify-end">
+            <Button
+              onClick={handleNewAnalysis}
+              variant="outline"
+              className="gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              New Analysis
+            </Button>
+          </div>
 
           <OverallInsights
             insights={insights}
