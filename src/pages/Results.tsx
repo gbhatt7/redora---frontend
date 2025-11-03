@@ -9,8 +9,8 @@ import { CompetitorAnalysis } from "@/components/CompetitorAnalysis";
 import { ContentImpact } from "@/components/ContentImpact";
 import { Recommendations } from "@/components/Recommendations";
 import { QueryAnalysis } from "@/components/QueryAnalysis";
+import { ChatSidebar } from "@/components/ChatSidebar";
 import { Search } from "lucide-react";
-import { toast } from "sonner";
 import { getProductAnalytics } from "@/apiHelpers";
 import {
   SidebarProvider,
@@ -18,9 +18,9 @@ import {
   SidebarContent,
   SidebarInset,
   SidebarTrigger,
-  useSidebar,
 } from "@/components/ui/sidebar";
 import { MessageSquare } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface InputStateAny {
   product?: { id: string; name?: string; website?: string };
@@ -455,17 +455,30 @@ export default function Results() {
   };
 
   return (
-    <Layout>
-      <div className="min-h-screen bg-background">
-        <div className="container mx-auto px-4 py-8 space-y-8">
-          <BrandHeader
-            brandName={data.brand_name || ""}
-            brandWebsite={data.brand_website || ""}
-            keywordsAnalyzed={data.analysis_scope?.search_keywords || []}
-            status={data.status || ""}
-            date={currentAnalytics.updated_at || currentAnalytics.created_at || ""}
-            modelName={data.model_name || ""}
-          />
+    <SidebarProvider 
+      defaultOpen={true}
+      style={{
+        "--sidebar-width": "28rem"
+      } as React.CSSProperties}
+    >
+      <Sidebar side="left" collapsible="offcanvas">
+        <SidebarContent>
+          <ChatSidebar productId={resultsData.product.id} />
+        </SidebarContent>
+      </Sidebar>
+      
+      <SidebarInset>
+        <Layout sidebarTrigger={<SidebarTrigger className="h-8 w-8" />}>
+          <div className="min-h-screen bg-background">
+            <div className="container mx-auto px-4 py-8 space-y-8">
+              <BrandHeader
+                brandName={data.brand_name || ""}
+                brandWebsite={data.brand_website || ""}
+                keywordsAnalyzed={data.analysis_scope?.search_keywords || []}
+                status={data.status || ""}
+                date={currentAnalytics.updated_at || currentAnalytics.created_at || ""}
+                modelName={data.model_name || ""}
+              />
 
               <OverallInsights
                 insights={insights}
@@ -538,18 +551,20 @@ export default function Results() {
                   />
                 )}
 
-          {data.recommendations && data.recommendations.length > 0 && (
-            <Recommendations
-              recommendations={data.recommendations.map(rec => ({
-                overall_insight: rec.overall_insight || "",
-                suggested_action: rec.suggested_action || "",
-                overall_effort: rec.overall_effort || "",
-                impact: rec.impact || "",
-              }))}
-            />
-          )}
-        </div>
-      </div>
-    </Layout>
+              {data.recommendations && data.recommendations.length > 0 && (
+                <Recommendations
+                  recommendations={data.recommendations.map(rec => ({
+                    overall_insight: rec.overall_insight || "",
+                    suggested_action: rec.suggested_action || "",
+                    overall_effort: rec.overall_effort || "",
+                    impact: rec.impact || "",
+                  }))}
+                />
+              )}
+            </div>
+          </div>
+        </Layout>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
