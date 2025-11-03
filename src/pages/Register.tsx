@@ -52,8 +52,11 @@ const Register = () => {
         title: "Account created!",
         description: "Welcome to GeoRankers.",
       });
+      // Mark app as initialized to prevent auto-redirect on logo click
+      sessionStorage.setItem("app_initialized", "true");
       setTimeout(() => {
-        navigate("/");
+        // Always go to input page after registration
+        navigate("/input");
       }, 100);
     } catch (error) {
       toast({

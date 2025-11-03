@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -24,8 +25,90 @@ import { getProductsByApplication } from "@/apiHelpers";
 const Index = () => {
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
+  // Initialize hasProduct from localStorage synchronously to avoid flash of wrong text
+  const [hasProduct, setHasProduct] = useState(() => {
+    const productId = localStorage.getItem("product_id");
+    return !!productId;
+  });
+  const [checkingProduct, setCheckingProduct] = useState(false);
+  const [hasChecked, setHasChecked] = useState(false);
 
-  const handleCheckVisibility = async () => {
+  // Check if user has product on mount - only redirect on initial app load
+  useEffect(() => {
+    const checkUserAndProduct = async () => {
+      if (isLoading || hasChecked) return;
+      
+      // Only auto-redirect if this is initial app load (not navigating from within app)
+      const hasNavigatedWithinApp = sessionStorage.getItem("app_initialized");
+      
+      if (!user) {
+        setHasChecked(true);
+        sessionStorage.setItem("app_initialized", "true");
+        return;
+      }
+
+      // If user is logged in and app is already initialized, don't auto-redirect
+      if (hasNavigatedWithinApp) {
+        setHasChecked(true);
+        return;
+      }
+
+      setCheckingProduct(true);
+
+      try {
+        const accessToken = localStorage.getItem("access_token") || "";
+        const applicationId = localStorage.getItem("application_id") || "";
+        
+        if (!applicationId) {
+          setHasProduct(false);
+          setCheckingProduct(false);
+          setHasChecked(true);
+          sessionStorage.setItem("app_initialized", "true");
+          navigate("/input");
+          return;
+        }
+        
+        const products = await getProductsByApplication(applicationId, accessToken);
+        
+        if (products && Array.isArray(products) && products.length > 0) {
+          setHasProduct(true);
+          const firstProduct = products[0];
+          
+          // Store product data
+          localStorage.setItem("product_id", firstProduct.id);
+          localStorage.setItem("keywords", JSON.stringify(firstProduct.search_keywords || []));
+          localStorage.setItem("keyword_count", (firstProduct.search_keywords || []).length.toString());
+          
+          setHasChecked(true);
+          sessionStorage.setItem("app_initialized", "true");
+          // Navigate to results page
+          navigate("/results", {
+            state: {
+              website: firstProduct.website || firstProduct.name,
+              keywords: firstProduct.search_keywords || [],
+              productId: firstProduct.id,
+            },
+          });
+        } else {
+          setHasProduct(false);
+          setHasChecked(true);
+          sessionStorage.setItem("app_initialized", "true");
+          navigate("/input");
+        }
+      } catch (error) {
+        setHasProduct(false);
+        setHasChecked(true);
+        sessionStorage.setItem("app_initialized", "true");
+        navigate("/input");
+      } finally {
+        setCheckingProduct(false);
+      }
+    };
+
+    checkUserAndProduct();
+  }, [user, isLoading, hasChecked, navigate]);
+
+  const handleNewAnalysis = async () => {
     if (!user) {
       // Not logged in → go to login
       navigate("/login");
@@ -45,18 +128,55 @@ const Index = () => {
       const products = await getProductsByApplication(applicationId, accessToken);
   
       if (products && Array.isArray(products) && products.length > 0) {
-        const firstProduct = products[0];
+        const lastProduct = products[products.length - 1];
+        
+        // Navigate to input page with pre-populated website
+        navigate("/input", {
+          state: {
+            prefilledWebsite: lastProduct.website || lastProduct.name,
+          },
+        });
+      } else {
+        // No products → go to input page
+        navigate("/input");
+      }
+    } catch (error) {
+      navigate("/input"); // fallback
+    }
+  };
+
+  const handlePreviousAnalysis = async () => {
+    if (!user) {
+      // Not logged in → go to login
+      navigate("/login");
+      return;
+    }
+
+    try {
+      const accessToken = localStorage.getItem("access_token") || "";
+      const applicationId = localStorage.getItem("application_id") || "";
+  
+      if (!applicationId) {
+        // No application ID → go to input
+        navigate("/input");
+        return;
+      }
+  
+      const products = await getProductsByApplication(applicationId, accessToken);
+  
+      if (products && Array.isArray(products) && products.length > 0) {
+        const lastProduct = products[products.length - 1];
   
         // Store product id and keywords
-        localStorage.setItem("product_id", firstProduct.id);
-        localStorage.setItem("keywords", JSON.stringify(firstProduct.search_keywords || []));
-        localStorage.setItem("keyword_count", (firstProduct.search_keywords || []).length.toString());
+        localStorage.setItem("product_id", lastProduct.id);
+        localStorage.setItem("keywords", JSON.stringify(lastProduct.search_keywords || []));
+        localStorage.setItem("keyword_count", (lastProduct.search_keywords || []).length.toString());
         
         navigate("/results", {
           state: {
-            website: firstProduct.website || firstProduct.name,
-            keywords: firstProduct.search_keywords || [],
-            productId: firstProduct.id,
+            website: lastProduct.website || lastProduct.name,
+            keywords: lastProduct.search_keywords || [],
+            productId: lastProduct.id,
           },
         });
       } else {
@@ -103,7 +223,7 @@ const Index = () => {
   ];
 
   // ✅ Handle loading state to prevent blank page
-  if (isLoading) {
+  if (isLoading || checkingProduct) {
     return (
       <Layout>
         <div className="flex items-center justify-center min-h-screen text-lg">
@@ -133,19 +253,30 @@ const Index = () => {
                 brand authority needed to get visible in AI search across
                 leading AI models like ChatGPT and Gemini.
               </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <div className="flex flex-col gap-6 items-center">
                 {user ? (
-                  <Button
-                    variant="hero"
-                    size="lg"
-                    className="text-lg px-8 w-full sm:w-auto"
-                    onClick={handleCheckVisibility}
-                  >
-                    New Analysis
-                    <ArrowRight className="w-5 h-5 ml-2" />
-                  </Button>
-                ) : (
                   <>
+                    <Button
+                      variant="default"
+                      size="lg"
+                      className="text-xl px-12 py-7 w-full sm:w-auto bg-primary hover:bg-primary/90 shadow-elevated"
+                      onClick={handleNewAnalysis}
+                    >
+                      <Zap className="w-6 h-6 mr-2" />
+                      New Analysis
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="text-lg px-8 w-full sm:w-auto"
+                      onClick={handlePreviousAnalysis}
+                    >
+                      Previous Analysis
+                      <ArrowRight className="w-5 h-5 ml-2" />
+                    </Button>
+                  </>
+                ) : (
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
                     <Link to="/register" className="w-full sm:w-auto">
                       <Button
                         variant="hero"
@@ -160,12 +291,12 @@ const Index = () => {
                       variant="outline"
                       size="lg"
                       className="text-lg px-8 w-full sm:w-auto"
-                      onClick={handleCheckVisibility}
+                      onClick={handleNewAnalysis}
                     >
                       Check Your Visibility
                       <ArrowRight className="w-5 h-5 ml-2" />
                     </Button>
-                  </>
+                  </div>
                 )}
               </div>
             </div>
@@ -261,7 +392,7 @@ const Index = () => {
                   variant="secondary"
                   size="lg"
                   className="text-lg px-8 bg-white text-primary hover:bg-white/90"
-                  onClick={handleCheckVisibility}
+                  onClick={handleNewAnalysis}
                 >
                   <Search className="w-5 h-5 mr-2" />
                   {user ? "New Analysis" : "Check Your Visibility"}

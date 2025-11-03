@@ -40,12 +40,18 @@ export const BrandHeader = ({
   modelName,
 }: BrandHeaderProps) => {
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
+    // Parse UTC date and convert to IST (UTC+5:30)
+    const utcDate = new Date(dateString);
+    const istOffset = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
+    const istDate = new Date(utcDate.getTime() + istOffset);
+    
+    return istDate.toLocaleDateString("en-US", {
       year: "numeric",
       month: "long",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "UTC", // Keep UTC since we already added the offset
     });
   };
 

@@ -9,7 +9,6 @@ import { CompetitorAnalysis } from "@/components/CompetitorAnalysis";
 import { ContentImpact } from "@/components/ContentImpact";
 import { Recommendations } from "@/components/Recommendations";
 import { QueryAnalysis } from "@/components/QueryAnalysis";
-import { ChatSidebar } from "@/components/ChatSidebar";
 import { Search } from "lucide-react";
 import { toast } from "sonner";
 import { getProductAnalytics } from "@/apiHelpers";
@@ -132,23 +131,27 @@ export default function Results() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const { user } = useAuth();
+  const { user, products } = useAuth();
+  const { toast } = useToast();
   const accessToken = localStorage.getItem("access_token") || "";
   const navigate = useNavigate();
   const location = useLocation();
   const pollingRef = useRef<{ productTimer?: number; hasShownStartMessage?: boolean }>({});
   const mountedRef = useRef(true);
 
-  const getCleanDomainName = (url?: string) => {
-    if (!url) return "";
-    try {
-      const cleanUrl = url.replace(/^https?:\/\//, "");
-      const withoutWww = cleanUrl.replace(/^www\./, "");
-      const domain = withoutWww.split('/')[0];
-      return domain;
-    } catch {
-      return url;
-    }
+  const handleNewAnalysis = () => {
+    // Get the current product's website from products or analytics
+    const currentWebsite = products[0]?.website || currentAnalytics?.analytics?.brand_website || "";
+    const productId = products[0]?.id || resultsData?.product.id || "";
+    
+    navigate("/input", {
+      state: {
+        prefillWebsite: currentWebsite,
+        productId: productId,
+        isNewAnalysis: true,
+        disableWebsiteEdit: true,
+      },
+    });
   };
 
   // Parse and normalize location.state
@@ -223,48 +226,84 @@ export default function Results() {
           const analysisToUse = completedAnalysis || res.analytics[0];
           
           if (analysisToUse) {
+            // Check if this is a new analysis by comparing dates
+            const storedDate = localStorage.getItem("last_analysis_date");
+            const currentDate = analysisToUse.date || analysisToUse.updated_at || analysisToUse.created_at;
+            
             setCurrentAnalytics(analysisToUse);
+            
+            // Update localStorage with latest analytics data
+            if (res.product_id) {
+              localStorage.setItem("product_id", res.product_id);
+            }
+            if (analysisToUse.analytics?.analysis_scope?.search_keywords) {
+              const keywords = analysisToUse.analytics.analysis_scope.search_keywords;
+              localStorage.setItem("keywords", JSON.stringify(keywords.map(k => ({ keyword: k }))));
+              localStorage.setItem("keyword_count", keywords.length.toString());
+            }
+            
+            // Store the full analytics response in localStorage
+            localStorage.setItem("last_analysis_data", JSON.stringify(res));
           
-          // Check the status to determine if we should stop polling
-          const status = analysisToUse.status?.toLowerCase() || "";
+            // Check the status to determine if we should stop polling
+            const status = analysisToUse.status?.toLowerCase() || "";
           
-          if (status === "completed") {
-            // Analysis is complete, stop polling and loading
-            setIsLoading(false);
-            setError(null);
-            
-            // Clear any existing timer
-            if (pollingRef.current.productTimer) {
-              clearTimeout(pollingRef.current.productTimer);
-            }
-          } else if (status === "failed") {
-            // Analysis failed, stop polling but don't show error
-            setIsLoading(false);
-            setError(null);
-            
-            // Clear any existing timer
-            if (pollingRef.current.productTimer) {
-              clearTimeout(pollingRef.current.productTimer);
-            }
-          } else {
-            // Analysis is still in progress, continue polling every 30 seconds
-            setError(null);
-            
-            // Only show the "analysis started" message once
-            if (!pollingRef.current.hasShownStartMessage && mountedRef.current) {
-              pollingRef.current.hasShownStartMessage = true;
-            }
-            
-            if (pollingRef.current.productTimer) {
-              clearTimeout(pollingRef.current.productTimer);
-            }
-            
-            pollingRef.current.productTimer = window.setTimeout(() => {
-              if (mountedRef.current) {
-                pollProductAnalytics(productId);
+            if (status === "completed") {
+              // Check if this is a new completed analysis
+              if (storedDate && currentDate && storedDate !== currentDate) {
+                // New analysis completed - show success toast
+                toast({
+                  title: "Analysis Complete",
+                  description: "Your new analysis is ready! Please refresh the page to see the updated insights.",
+                  duration: 10000,
+                });
+                localStorage.setItem("last_analysis_date", currentDate);
+              } else if (!storedDate && currentDate) {
+                // First time storing the date
+                localStorage.setItem("last_analysis_date", currentDate);
               }
-            }, 30000); // Poll every 30 seconds
-          }
+              
+              // Analysis is complete, stop polling and loading
+              setIsLoading(false);
+              setError(null);
+              
+              // Clear any existing timer
+              if (pollingRef.current.productTimer) {
+                clearTimeout(pollingRef.current.productTimer);
+              }
+            } else if (status === "failed") {
+              // Analysis failed, stop polling but don't show error
+              setIsLoading(false);
+              setError(null);
+              
+              // Clear any existing timer
+              if (pollingRef.current.productTimer) {
+                clearTimeout(pollingRef.current.productTimer);
+              }
+            } else {
+              // Analysis is still in progress, continue polling every 30 seconds
+              setError(null);
+              
+              // Only show the "analysis started" message once
+              if (!pollingRef.current.hasShownStartMessage && mountedRef.current) {
+                toast({
+                  title: "Analysis in Progress",
+                  description: "Your analysis is now in progress. This process typically takes around 20 minutes to complete. You'll be notified once it's ready.",
+                  duration: 10000, // Keep it visible until dismissed
+                });
+                pollingRef.current.hasShownStartMessage = true;
+              }
+              
+              if (pollingRef.current.productTimer) {
+                clearTimeout(pollingRef.current.productTimer);
+              }
+              
+              pollingRef.current.productTimer = window.setTimeout(() => {
+                if (mountedRef.current) {
+                  pollProductAnalytics(productId);
+                }
+              }, 30000); // Poll every 30 seconds
+            }
           } else {
             // No analysis data found, continue polling
             if (pollingRef.current.productTimer) {
@@ -411,31 +450,22 @@ export default function Results() {
   // Get your brand's total (last brand in the list)
   const yourBrandTotal = Object.values(brandMentionTotals)[Object.values(brandMentionTotals).length - 1] || 0;
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
-    <SidebarProvider 
-      defaultOpen={true}
-      style={{
-        "--sidebar-width": "28rem"
-      } as React.CSSProperties}
-    >
-      <Sidebar side="left" collapsible="offcanvas">
-        <SidebarContent>
-          <ChatSidebar productId={resultsData.product.id} />
-        </SidebarContent>
-      </Sidebar>
-      
-      <SidebarInset>
-        <Layout sidebarTrigger={<SidebarTrigger className="h-8 w-8" />}>
-          <div className="min-h-screen bg-background">
-            <div className="container mx-auto px-4 py-8 space-y-8">
-              <BrandHeader
-                brandName={data.brand_name || ""}
-                brandWebsite={data.brand_website || ""}
-                keywordsAnalyzed={data.analysis_scope?.search_keywords || []}
-                status={data.status || ""}
-                date={currentAnalytics.updated_at || currentAnalytics.created_at || ""}
-                modelName={data.model_name || ""}
-              />
+    <Layout>
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto px-4 py-8 space-y-8">
+          <BrandHeader
+            brandName={data.brand_name || ""}
+            brandWebsite={data.brand_website || ""}
+            keywordsAnalyzed={data.analysis_scope?.search_keywords || []}
+            status={data.status || ""}
+            date={currentAnalytics.updated_at || currentAnalytics.created_at || ""}
+            modelName={data.model_name || ""}
+          />
 
               <OverallInsights
                 insights={insights}
@@ -508,20 +538,18 @@ export default function Results() {
                   />
                 )}
 
-              {data.recommendations && data.recommendations.length > 0 && (
-                <Recommendations
-                  recommendations={data.recommendations.map(rec => ({
-                    overall_insight: rec.overall_insight || "",
-                    suggested_action: rec.suggested_action || "",
-                    overall_effort: rec.overall_effort || "",
-                    impact: rec.impact || "",
-                  }))}
-                />
-              )}
-            </div>
-          </div>
-        </Layout>
-      </SidebarInset>
-    </SidebarProvider>
+          {data.recommendations && data.recommendations.length > 0 && (
+            <Recommendations
+              recommendations={data.recommendations.map(rec => ({
+                overall_insight: rec.overall_insight || "",
+                suggested_action: rec.suggested_action || "",
+                overall_effort: rec.overall_effort || "",
+                impact: rec.impact || "",
+              }))}
+            />
+          )}
+        </div>
+      </div>
+    </Layout>
   );
 }

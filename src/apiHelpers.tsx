@@ -56,6 +56,11 @@ export interface ProductPayload {
   search_keywords: string[];
 }
 
+export interface NewAnalysis {
+  productId: string,
+  searchKeywords: string[]
+}
+
 /* =====================
    AXIOS CONFIG
    ===================== */
@@ -152,6 +157,22 @@ export const createProductWithKeywords = async (payload: ProductPayload): Promis
 export const fetchProductsWithKeywords = async (payload: ProductPayload): Promise<any> => {
   try {
     const res = await API.post(API_ENDPOINTS.createProductWithKeywords, payload);
+    return res.data;
+  } catch (error) {
+    return null;
+  }
+};
+
+export const generateWithKeywords = async (
+  productId: string,
+  searchKeywords: string[]
+): Promise<any> => {
+  try {
+    const body = {
+      product_id: productId,
+      search_keywords: searchKeywords,
+    };
+    const res = await API.post(API_ENDPOINTS.generateWithKeywords, body);
     return res.data;
   } catch (error) {
     return null;

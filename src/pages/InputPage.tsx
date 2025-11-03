@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,14 +77,34 @@ export default function InputPage() {
   const [dnsStatus, setDnsStatus] = useState<
     "valid" | "invalid" | "checking" | null
   >(null);
+  const [isNewAnalysis, setIsNewAnalysis] = useState(false);
+  const [productId, setProductId] = useState<string | null>(null);
+  const [isWebsiteDisabled, setIsWebsiteDisabled] = useState(false);
 
-  const { user, applicationId } = useAuth();
+  const { user, applicationId, products } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     if (!user) navigate("/login");
-  }, [user, navigate]);
+
+    // Check if coming from Results page with pre-filled website
+    const state = location.state as any;
+    if (state?.prefillWebsite) {
+      setBrand(state.prefillWebsite);
+      checkDNS(state.prefillWebsite);
+    }
+    if (state?.isNewAnalysis) {
+      setIsNewAnalysis(true);
+    }
+    if (state?.productId) {
+      setProductId(state.productId);
+    }
+    if (state?.disableWebsiteEdit) {
+      setIsWebsiteDisabled(true);
+    }
+  }, [user, navigate, location.state]);
 
   /* =====================
      DNS CHECK
@@ -184,44 +204,79 @@ export default function InputPage() {
 
     try {
       const trimmedBrand = brand.trim();
-      const payload = {
-        name: trimmedBrand,
-        description: trimmedBrand,
-        website: normalizeDomain(trimmedBrand),
-        business_domain: trimmedBrand,
-        application_id: applicationId,
-        search_keywords: keywords,
-      };
+      
+      // Check if this is a new analysis or initial product creation
+      if (isNewAnalysis && productId) {
+        // Use the new generate/with-keywords endpoint
+        const { generateWithKeywords } = await import("@/apiHelpers");
+        const data = await generateWithKeywords(productId, keywords);
+        
+        console.log("New analysis generation started");
+        
+        // Update localStorage with latest data
+        if (productId) {
+          localStorage.setItem("product_id", productId);
+        }
+        localStorage.setItem("keywords", JSON.stringify(keywords.map(k => ({ keyword: k }))));
+        localStorage.setItem("keyword_count", keywords.length.toString());
 
-      console.log("Brand analysis generation started");
-      const data = await fetchProductsWithKeywords(payload);
-      console.log("Brand analysis created");
+        setTimeout(() => {
+          toast({
+            title: "Analysis in Progress",
+            description: "Your analysis is now in progress. This process typically takes around 20 minutes to complete. You'll be notified once it's ready.",
+            duration: 10000,
+          });
 
-      // ✅ Save keywords once
-      saveKeywordsOnce(data);
+          navigate("/results", {
+            state: {
+              website: trimmedBrand,
+              keywords,
+              productId: productId,
+            },
+          });
 
-      if (data.product?.id) {
-        localStorage.setItem("product_id", data.product.id);
+          setIsLoading(false);
+        }, 10000);
+      } else {
+        // Create new product with keywords
+        const payload = {
+          name: trimmedBrand,
+          description: trimmedBrand,
+          website: normalizeDomain(trimmedBrand),
+          business_domain: trimmedBrand,
+          application_id: applicationId,
+          search_keywords: keywords,
+        };
+
+        console.log("Brand analysis generation started");
+        const data = await fetchProductsWithKeywords(payload);
+        console.log("Brand analysis created");
+
+        // Save keywords once
+        saveKeywordsOnce(data);
+
+        if (data.product?.id) {
+          localStorage.setItem("product_id", data.product.id);
+        }
+
+        setTimeout(() => {
+          toast({
+            title: "Analysis in Progress",
+            description: "Your analysis is now in progress. This process typically takes around 20 minutes to complete. You'll be notified once it's ready.",
+            duration: 10000,
+          });
+
+          navigate("/results", {
+            state: {
+              website: trimmedBrand,
+              keywords,
+              productId: data.product?.id,
+            },
+          });
+
+          setIsLoading(false);
+        }, 10000);
       }
-
-      // 🚨 Key change: move *all navigation + toast* logic inside setTimeout
-      setTimeout(() => {
-        toast({
-          title: "Analysis started",
-          description:
-            "Your visibility analysis has been initiated successfully.",
-        });
-
-        navigate("/results", {
-          state: {
-            website: trimmedBrand,
-            keywords,
-            productId: data.product?.id,
-          },
-        });
-
-        setIsLoading(false); // stop loading AFTER navigating
-      }, 10000); // 30 sec delay
     } catch (error: any) {
       toast({
         title: "Error",
@@ -278,6 +333,7 @@ export default function InputPage() {
                         maxLength={100}
                         className="pl-11 pr-11 bg-white"
                         autoComplete="url"
+                        disabled={isWebsiteDisabled}
                       />
                       {/* DNS Status Indicator */}
                       <div className="absolute right-3 top-1/2 -translate-y-1/2">

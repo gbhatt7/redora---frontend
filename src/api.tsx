@@ -8,6 +8,7 @@ export const API_ENDPOINTS = {
 
   // Products
   createProductWithKeywords: `${BASE_URL}/products/with-keywords`,
+  generateWithKeywords: `${BASE_URL}/products/generate/with-keywords`,
 
   // Analytics
   getKeywordAnalytics: (keywordId: string, date: string) =>
@@ -24,5 +25,6 @@ export const API_ENDPOINTS = {
   getChatHistory: (productId: string, limit: number = 100) =>
     `${BASE_URL}/products/chatbot/history/${productId}?limit=${limit}`,
   sendChatMessage: (productId: string) =>
-    `${BASE_URL}/products/chatbot/${productId}`
+    `${BASE_URL}/products/chatbot/${productId}`,
+  generateNewAnalysis: `${BASE_URL}/products/generate/with-keywords`
 };
