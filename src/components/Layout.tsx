@@ -12,9 +12,10 @@ import { Star, Search, BarChart3, User, LogOut } from "lucide-react";
 interface LayoutProps {
   children: React.ReactNode;
   showNavigation?: boolean;
+  sidebarTrigger?: React.ReactNode;
 }
 
-export const Layout = ({ children, showNavigation = true }: LayoutProps) => {
+export const Layout = ({ children, showNavigation = true, sidebarTrigger }: LayoutProps) => {
   const location = useLocation();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -30,12 +31,15 @@ export const Layout = ({ children, showNavigation = true }: LayoutProps) => {
         <nav className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="container mx-auto px-4">
             <div className="flex h-16 items-center justify-between">
-              {/* Logo */}
-              <Link to="/" className="flex items-center space-x-2">
-                <span className="text-2xl md:text-3xl font-bold gradient-text">
-                  GeoRankers
-                </span>
-              </Link>
+              {/* Left side - Sidebar trigger and Logo */}
+              <div className="flex items-center space-x-3">
+                {sidebarTrigger}
+                <Link to="/" className="flex items-center space-x-2">
+                  <span className="text-2xl md:text-3xl font-bold gradient-text">
+                    GeoRankers
+                  </span>
+                </Link>
+              </div>
 
               {/* Action Buttons */}
               <div className="flex items-center space-x-3">

@@ -18,5 +18,11 @@ export const API_ENDPOINTS = {
 
   // Product by Application ID
   getProductsByApplication: (applicationId: string) =>
-    `${BASE_URL}/products/application/${applicationId}`
+    `${BASE_URL}/products/application/${applicationId}`,
+
+  // Chatbot endpoints
+  getChatHistory: (productId: string, limit: number = 100) =>
+    `${BASE_URL}/products/chatbot/history/${productId}?limit=${limit}`,
+  sendChatMessage: (productId: string) =>
+    `${BASE_URL}/products/chatbot/${productId}`
 };

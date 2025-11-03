@@ -324,4 +324,13 @@ All colors MUST be HSL. Inspired by GeoRankers branding with blue gradients.
   .shadow-excutive-summary\/20 {
     box-shadow: 0 10px 15px -3px hsl(210 100% 68% / 0.2), 0 4px 6px -4px hsl(210 100% 68% / 0.1);
   }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }

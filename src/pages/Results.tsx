@@ -9,9 +9,19 @@ import { CompetitorAnalysis } from "@/components/CompetitorAnalysis";
 import { ContentImpact } from "@/components/ContentImpact";
 import { Recommendations } from "@/components/Recommendations";
 import { QueryAnalysis } from "@/components/QueryAnalysis";
+import { ChatSidebar } from "@/components/ChatSidebar";
 import { Search } from "lucide-react";
 import { toast } from "sonner";
 import { getProductAnalytics } from "@/apiHelpers";
+import {
+  SidebarProvider,
+  Sidebar,
+  SidebarContent,
+  SidebarInset,
+  SidebarTrigger,
+  useSidebar,
+} from "@/components/ui/sidebar";
+import { MessageSquare } from "lucide-react";
 
 interface InputStateAny {
   product?: { id: string; name?: string; website?: string };
@@ -402,101 +412,116 @@ export default function Results() {
   const yourBrandTotal = Object.values(brandMentionTotals)[Object.values(brandMentionTotals).length - 1] || 0;
 
   return (
-    <Layout>
-      <div className="min-h-screen bg-background">
-        <div className="container mx-auto px-4 py-8 space-y-8">
-          <BrandHeader
-            brandName={data.brand_name || ""}
-            brandWebsite={data.brand_website || ""}
-            keywordsAnalyzed={data.analysis_scope?.search_keywords || []}
-            status={data.status || ""}
-            date={currentAnalytics.updated_at || currentAnalytics.created_at || ""}
-            modelName={data.model_name || ""}
-          />
-
-          <OverallInsights
-            insights={insights}
-            executiveSummary={data.executive_summary ? {
-              brand_score_and_tier: data.executive_summary.brand_score_and_tier || "",
-              strengths: data.executive_summary.strengths || [],
-              weaknesses: data.executive_summary.weaknesses || [],
-              competitor_positioning: {
-                leaders: data.executive_summary.competitor_positioning?.leaders || [],
-                mid_tier: data.executive_summary.competitor_positioning?.mid_tier || [],
-                laggards: data.executive_summary.competitor_positioning?.laggards || [],
-              },
-              prioritized_actions: data.executive_summary.prioritized_actions || [],
-              conclusion: data.executive_summary.conclusion || "",
-            } : undefined}
-            yourBrandTotal={yourBrandTotal}
-            topBrand={topBrand}
-            topBrandTotal={topBrandTotal}
-          />
-
-          {data.sources_and_content_impact &&
-            data.sources_and_content_impact.header &&
-            data.sources_and_content_impact.rows && (
-              <SourceAnalysis
-                contentImpact={{
-                  header: data.sources_and_content_impact.header,
-                  rows: data.sources_and_content_impact.rows,
-                  depth_notes: data.sources_and_content_impact.depth_notes,
-                }}
+    <SidebarProvider 
+      defaultOpen={true}
+      style={{
+        "--sidebar-width": "28rem"
+      } as React.CSSProperties}
+    >
+      <Sidebar side="left" collapsible="offcanvas">
+        <SidebarContent>
+          <ChatSidebar productId={resultsData.product.id} />
+        </SidebarContent>
+      </Sidebar>
+      
+      <SidebarInset>
+        <Layout sidebarTrigger={<SidebarTrigger className="h-8 w-8" />}>
+          <div className="min-h-screen bg-background">
+            <div className="container mx-auto px-4 py-8 space-y-8">
+              <BrandHeader
                 brandName={data.brand_name || ""}
+                brandWebsite={data.brand_website || ""}
+                keywordsAnalyzed={data.analysis_scope?.search_keywords || []}
+                status={data.status || ""}
+                date={currentAnalytics.updated_at || currentAnalytics.created_at || ""}
+                modelName={data.model_name || ""}
               />
-            )}
 
-          {(data.competitor_visibility_table?.header &&
-            data.competitor_visibility_table?.rows) ||
-          (data.competitor_sentiment_table?.header &&
-            data.competitor_sentiment_table?.rows) ? (
-            <CompetitorAnalysis
-              brandName={data.brand_name || ""}
-              analysis={{
-                competitor_visibility_table: data.competitor_visibility_table?.header &&
-                  data.competitor_visibility_table?.rows
-                  ? {
-                      header: data.competitor_visibility_table.header,
-                      rows: data.competitor_visibility_table.rows,
-                    }
-                  : undefined,
-                competitor_sentiment_table: data.competitor_sentiment_table?.header &&
-                  data.competitor_sentiment_table?.rows
-                  ? {
-                      header: data.competitor_sentiment_table.header,
-                      rows: data.competitor_sentiment_table.rows,
-                    }
-                  : undefined,
-              }}
-            />
-          ) : null}
-
-          {data.sources_and_content_impact &&
-            data.sources_and_content_impact.header &&
-            data.sources_and_content_impact.rows &&
-            data.sources_and_content_impact.rows.length > 0 && (
-              <ContentImpact
-                brandName={data.brand_name || ""}
-                contentImpact={{
-                  header: data.sources_and_content_impact.header,
-                  rows: data.sources_and_content_impact.rows,
-                  depth_notes: data.sources_and_content_impact.depth_notes,
-                }}
+              <OverallInsights
+                insights={insights}
+                executiveSummary={data.executive_summary ? {
+                  brand_score_and_tier: data.executive_summary.brand_score_and_tier || "",
+                  strengths: data.executive_summary.strengths || [],
+                  weaknesses: data.executive_summary.weaknesses || [],
+                  competitor_positioning: {
+                    leaders: data.executive_summary.competitor_positioning?.leaders || [],
+                    mid_tier: data.executive_summary.competitor_positioning?.mid_tier || [],
+                    laggards: data.executive_summary.competitor_positioning?.laggards || [],
+                  },
+                  prioritized_actions: data.executive_summary.prioritized_actions || [],
+                  conclusion: data.executive_summary.conclusion || "",
+                } : undefined}
+                yourBrandTotal={yourBrandTotal}
+                topBrand={topBrand}
+                topBrandTotal={topBrandTotal}
               />
-            )}
 
-          {data.recommendations && data.recommendations.length > 0 && (
-            <Recommendations
-              recommendations={data.recommendations.map(rec => ({
-                overall_insight: rec.overall_insight || "",
-                suggested_action: rec.suggested_action || "",
-                overall_effort: rec.overall_effort || "",
-                impact: rec.impact || "",
-              }))}
-            />
-          )}
-        </div>
-      </div>
-    </Layout>
+              {data.sources_and_content_impact &&
+                data.sources_and_content_impact.header &&
+                data.sources_and_content_impact.rows && (
+                  <SourceAnalysis
+                    contentImpact={{
+                      header: data.sources_and_content_impact.header,
+                      rows: data.sources_and_content_impact.rows,
+                      depth_notes: data.sources_and_content_impact.depth_notes,
+                    }}
+                    brandName={data.brand_name || ""}
+                  />
+                )}
+
+              {(data.competitor_visibility_table?.header &&
+                data.competitor_visibility_table?.rows) ||
+              (data.competitor_sentiment_table?.header &&
+                data.competitor_sentiment_table?.rows) ? (
+                <CompetitorAnalysis
+                  brandName={data.brand_name || ""}
+                  analysis={{
+                    competitor_visibility_table: data.competitor_visibility_table?.header &&
+                      data.competitor_visibility_table?.rows
+                      ? {
+                          header: data.competitor_visibility_table.header,
+                          rows: data.competitor_visibility_table.rows,
+                        }
+                      : undefined,
+                    competitor_sentiment_table: data.competitor_sentiment_table?.header &&
+                      data.competitor_sentiment_table?.rows
+                      ? {
+                          header: data.competitor_sentiment_table.header,
+                          rows: data.competitor_sentiment_table.rows,
+                        }
+                      : undefined,
+                  }}
+                />
+              ) : null}
+
+              {data.sources_and_content_impact &&
+                data.sources_and_content_impact.header &&
+                data.sources_and_content_impact.rows &&
+                data.sources_and_content_impact.rows.length > 0 && (
+                  <ContentImpact
+                    brandName={data.brand_name || ""}
+                    contentImpact={{
+                      header: data.sources_and_content_impact.header,
+                      rows: data.sources_and_content_impact.rows,
+                      depth_notes: data.sources_and_content_impact.depth_notes,
+                    }}
+                  />
+                )}
+
+              {data.recommendations && data.recommendations.length > 0 && (
+                <Recommendations
+                  recommendations={data.recommendations.map(rec => ({
+                    overall_insight: rec.overall_insight || "",
+                    suggested_action: rec.suggested_action || "",
+                    overall_effort: rec.overall_effort || "",
+                    impact: rec.impact || "",
+                  }))}
+                />
+              )}
+            </div>
+          </div>
+        </Layout>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

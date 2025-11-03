@@ -210,3 +210,120 @@ export const getProductsByApplication = async (
     return null;
   }
 };
+
+/* =====================
+   CHAT HELPERS
+   ===================== */
+export interface ChatMessage {
+  id: string;
+  content: string;
+  role: 'user' | 'assistant';
+  timestamp: string;
+}
+
+export interface ChatbotRequest {
+  product_id: string;
+  question: string;
+}
+
+export interface ChatbotResponse {
+  answer: string;
+  suggested_questions: string[];
+  product_id: string;
+  question: string;
+  timestamp: string;
+}
+
+export interface ChatHistory {
+  id: string;
+  product_id: string;
+  user_id: string;
+  question: string;
+  answer: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChatHistoryResponse {
+  product_id: string;
+  history: ChatHistory[];
+  count: number;
+  limit: number;
+}
+
+export const getChatHistory = async (
+  productId: string,
+  accessToken: string,
+  limit: number = 100
+): Promise<ChatMessage[]> => {
+  try {
+    const res = await API.get(API_ENDPOINTS.getChatHistory(productId, limit), {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    
+    const data: ChatHistoryResponse = res?.data;
+    
+    if (!data || !data.history || !Array.isArray(data.history)) {
+      return [];
+    }
+    
+    // Transform history to messages array
+    const messages: ChatMessage[] = [];
+    
+    // History comes most recent first, reverse for chronological display
+    const reversedHistory = [...data.history].reverse();
+    
+    reversedHistory.forEach((item) => {
+      // Add user message (question)
+      messages.push({
+        id: `${item.id}-question`,
+        content: item.question,
+        role: 'user',
+        timestamp: item.created_at || item.updated_at,
+      });
+      
+      // Add assistant message (answer)
+      messages.push({
+        id: `${item.id}-answer`,
+        content: item.answer,
+        role: 'assistant',
+        timestamp: item.updated_at || item.created_at,
+      });
+    });
+    
+    return messages;
+  } catch (error) {
+    console.error('Failed to get chat history:', error);
+    return [];
+  }
+};
+
+export const sendChatMessage = async (
+  question: string,
+  productId: string,
+  accessToken: string
+): Promise<ChatbotResponse | null> => {
+  try {
+    const requestBody: ChatbotRequest = {
+      product_id: productId,
+      question: question,
+    };
+    
+    const res = await API.post(
+      API_ENDPOINTS.sendChatMessage(productId),
+      requestBody,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+    
+    return res?.data || null;
+  } catch (error) {
+    console.error('Failed to send chat message:', error);
+    return null;
+  }
+};
