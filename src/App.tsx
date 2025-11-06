@@ -7,6 +7,10 @@ import { AuthProvider } from "@/contexts/auth-context";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
+import VerifyEmail from "./pages/VerifyEmail";
+import EmailVerificationPending from "./pages/EmailVerificationPending";
 import InputPage from "./pages/InputPage";
 import Results from "./pages/Results";
 import NotFound from "./pages/NotFound";
@@ -26,6 +30,10 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route path="/email-verification-pending" element={<EmailVerificationPending />} />
             <Route path="/input" element={<InputPage />} />
             <Route path="/results" element={<Results />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

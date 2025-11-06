@@ -11,7 +11,7 @@ import { Recommendations } from "@/components/Recommendations";
 import { QueryAnalysis } from "@/components/QueryAnalysis";
 import { ChatSidebar } from "@/components/ChatSidebar";
 import { Search } from "lucide-react";
-import { getProductAnalytics } from "@/apiHelpers";
+import { regenerateAnalysis, getProductAnalytics } from "@/apiHelpers";
 import {
   SidebarProvider,
   Sidebar,
@@ -211,8 +211,7 @@ export default function Results() {
       if (!productId || !accessToken || !mountedRef.current) return;
       
       try {
-        const today = new Date().toISOString().split("T")[0];
-        const res = await getProductAnalytics(productId, today, accessToken);
+        const res = await getProductAnalytics(productId, accessToken);
         
         if (!mountedRef.current) return;
 

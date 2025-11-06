@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff } from "lucide-react";
+import { getProductsByApplication } from "@/apiHelpers";
 
 const Register = () => {
   const [fullName, setFullName] = useState("");
@@ -48,16 +49,16 @@ const Register = () => {
 
     try {
       await register(email, password, fullName);
+      
+      // Store email for verification page
+      localStorage.setItem('pending_verification_email', email);
+      
       toast({
         title: "Account created!",
-        description: "Welcome to GeoRankers.",
+        description: "Please check your email to verify your account.",
       });
-      // Mark app as initialized to prevent auto-redirect on logo click
-      sessionStorage.setItem("app_initialized", "true");
-      setTimeout(() => {
-        // Always go to input page after registration
-        navigate("/input");
-      }, 100);
+      
+      navigate("/email-verification-pending");
     } catch (error) {
       toast({
         title: "Registration failed",

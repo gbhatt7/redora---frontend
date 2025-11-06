@@ -82,23 +82,26 @@ API.interceptors.request.use((config) => {
 /* =====================
    AUTH HELPERS
    ===================== */
-export const login = async (payload: LoginRequest): Promise<LoginResponse | null> => {
-  try {
-    const res: AxiosResponse<LoginResponse> = await API.post(API_ENDPOINTS.login, payload);
+export const login = async (payload: LoginRequest): Promise<LoginResponse> => {
+  console.log('Login API called with email:', payload.email);
+  const res: AxiosResponse<LoginResponse> = await API.post(API_ENDPOINTS.login, payload);
+  console.log('Login API response:', res.data);
 
-    if (res.data.access_token) {
-      localStorage.setItem("access_token", res.data.access_token);
+  // Save the access token if present
+  if (res.data.access_token && res.data.access_token.trim() !== "") {
+    localStorage.setItem("access_token", res.data.access_token);
+    console.log('Access token saved');
 
-      const appId = res.data.user?.owned_applications?.[0]?.id;
-      if (appId) {
-        localStorage.setItem("application_id", appId);
-      }
+    const appId = res.data.user?.owned_applications?.[0]?.id;
+    if (appId) {
+      localStorage.setItem("application_id", appId);
+      console.log('Application ID saved:', appId);
     }
-
-    return res.data;
-  } catch (error) {
-    return null;
+  } else {
+    console.log('No access token in response - email verification may be pending');
   }
+
+  return res.data;
 };
 
 export const register = async (payload: RegisterRequest): Promise<RegisterResponse | null> => {
@@ -114,7 +117,46 @@ export const register = async (payload: RegisterRequest): Promise<RegisterRespon
 
     return res.data;
   } catch (error) {
-    return null;
+    console.error('Register error:', error);
+    throw error;
+  }
+};
+
+/* =====================
+   FORGOT PASSWORD & RESET
+   ===================== */
+export const forgotPassword = async (email: string): Promise<any> => {
+  try {
+    const res = await API.post(API_ENDPOINTS.forgotPassword, { email });
+    return res.data;
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    throw error;
+  }
+};
+
+export const resetPassword = async (token: string, newPassword: string): Promise<any> => {
+  try {
+    const res = await API.post(API_ENDPOINTS.resetPassword, { 
+      token, 
+      new_password: newPassword 
+    });
+    return res.data;
+  } catch (error) {
+    console.error('Reset password error:', error);
+    throw error;
+  }
+};
+
+export const verifyEmail = async (token: string): Promise<any> => {
+  try {
+    console.log('Verify email API called with token:', token);
+    const res = await API.get(`${API_ENDPOINTS.verifyEmail}?token=${token}`);
+    console.log('Verify email API response:', res.data);
+    return res.data;
+  } catch (error) {
+    console.error('Verify email error:', error);
+    throw error;
   }
 };
 
@@ -184,17 +226,37 @@ export const generateWithKeywords = async (
    ===================== */
 export const getProductAnalytics = async (
   productId: string,
-  date: string,
   accessToken: string
 ): Promise<any> => {
   try {
-    const res = await API.get(API_ENDPOINTS.getProductAnalytics(productId, date), {
+    const res = await API.get(API_ENDPOINTS.getProductAnalytics(productId), {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
     });
     return res?.data || null;
   } catch (error) {
+    return null;
+  }
+};
+
+export const regenerateAnalysis = async (
+  productId: string,
+  accessToken: string
+): Promise<any> => {
+  try {
+    const res = await API.post(
+      API_ENDPOINTS.regenerateAnalysis, 
+      { product_id: productId },
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+    return res?.data || null;
+  } catch (error) {
+    console.error('Regenerate analysis error:', error);
     return null;
   }
 };

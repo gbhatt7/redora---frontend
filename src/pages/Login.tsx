@@ -19,8 +19,37 @@ const Login = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Login form submitted with email:', email);
+    
     try {
-      await login(email, password);
+      console.log('Attempting login...');
+      
+      // Attempt login
+      const loginResult = await login(email, password);
+      console.log('Login result:', loginResult);
+      
+      // If email verification is pending
+      if (loginResult === 'email_not_verified') {
+        console.log('Email not verified, redirecting to verification pending page');
+        localStorage.setItem('pending_verification_email', email);
+        navigate("/email-verification-pending");
+        return;
+      }
+      
+      // If login failed for other reasons
+      if (loginResult === false) {
+        console.log('Login failed');
+        toast({
+          title: "Login failed",
+          description: "Please check your credentials and try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Login successful - clear any pending verification
+      console.log('Login successful, clearing pending verification');
+      localStorage.removeItem('pending_verification_email');
       
       toast({
         title: "Welcome back!",
@@ -30,16 +59,23 @@ const Login = () => {
       // Use the same logic as Index page
       const accessToken = localStorage.getItem("access_token") || "";
       const applicationId = localStorage.getItem("application_id") || "";
+      console.log('Access token:', accessToken ? 'present' : 'missing');
+      console.log('Application ID:', applicationId || 'missing');
   
       if (!applicationId) {
+        console.log('No application ID, redirecting to input page');
+        sessionStorage.setItem("app_initialized", "true");
         navigate("/input");
         return;
       }
   
+      console.log('Fetching products for application:', applicationId);
       const products = await getProductsByApplication(applicationId, accessToken);
+      console.log('Products fetched:', products);
   
       if (products && Array.isArray(products) && products.length > 0) {
         const firstProduct = products[0];
+        console.log('First product:', firstProduct);
   
         // Store product id and keywords
         localStorage.setItem("product_id", firstProduct.id);
@@ -49,6 +85,7 @@ const Login = () => {
         // Mark app as initialized to prevent auto-redirect on logo click
         sessionStorage.setItem("app_initialized", "true");
         
+        console.log('Redirecting to results page');
         navigate("/results", {
           state: {
             website: firstProduct.website || firstProduct.name,
@@ -58,13 +95,19 @@ const Login = () => {
         });
       } else {
         // No products → go to input page
+        console.log('No products found, redirecting to input page');
         sessionStorage.setItem("app_initialized", "true");
         navigate("/input");
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Login error caught:', error);
+      console.error('Error response:', error.response?.data);
+      
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || "Please check your credentials and try again.";
+      
       toast({
         title: "Login failed",
-        description: "Please check your credentials and try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -138,14 +181,24 @@ const Login = () => {
               )}
             </Button>
           </form>
-          <div className="mt-4 text-center text-sm">
-            <span className="text-muted-foreground">Don't have an account? </span>
-            <Link
-              to="/register"
-              className="text-primary hover:underline font-medium"
-            >
-              Sign up
-            </Link>
+          <div className="mt-4 text-center text-sm space-y-2">
+            <div>
+              <Link
+                to="/forgot-password"
+                className="text-primary hover:underline font-medium"
+              >
+                Forgot password?
+              </Link>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Don't have an account? </span>
+              <Link
+                to="/register"
+                className="text-primary hover:underline font-medium"
+              >
+                Sign up
+              </Link>
+            </div>
           </div>
         </CardContent>
       </Card>

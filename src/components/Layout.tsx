@@ -7,12 +7,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Star, Search, BarChart3, User, LogOut, RefreshCw } from "lucide-react";
+import { User, LogOut, RefreshCw } from "lucide-react";
 import { useState, useEffect } from "react";
-import { generateWithKeywords, getProductAnalytics } from "@/apiHelpers";
-import { toast } from "sonner";
+import { regenerateAnalysis } from "@/apiHelpers";
 import { useToast } from "@/hooks/use-toast";
-import { title } from "process";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -44,37 +42,25 @@ export const Layout = ({ children, showNavigation = true, sidebarTrigger }: Layo
     setIsRegenerating(true);
     try {
       const accessToken = localStorage.getItem("access_token") || "";
-      const today = new Date().toISOString().split("T")[0];
       
-      // Fetch current analytics to get keywords
-      const analyticsData = await getProductAnalytics(productId, today, accessToken);
+      // Call regenerate analysis API
+      await regenerateAnalysis(productId, accessToken);
       
-      if (analyticsData?.analytics?.[0]?.analytics?.analysis_scope?.search_keywords) {
-        const keywords = analyticsData.analytics[0].analytics.analysis_scope.search_keywords;
-        
-        // Call generate with keywords API
-        await generateWithKeywords(productId, keywords);
-        
-        toast({
-          title:"Analysis in Progress",
-          description: "Your analysis is being regenerated. This process typically takes around 20 minutes to complete. You'll be notified once it's ready.",
-          duration: 10000,
-        });
+      toast({
+        title:"Analysis in Progress",
+        description: "Your analysis is being regenerated. This process typically takes around 20 minutes to complete. You'll be notified once it's ready.",
+        duration: 10000,
+      });
 
-        // Refresh the page or navigate to results
-        setTimeout(() => {
-          window.location.reload();
-        }, 20000);
-      } else {
-        toast({
-          title: "Error",
-          description: "Could not find keywords from previous analysis"
-        });
-      }
+      // Refresh after some time
+      setTimeout(() => {
+        window.location.reload();
+      }, 20000);
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to regenerate analysis. Please try again."
+        description: "Failed to regenerate analysis. Please try again.",
+        variant: "destructive",
       });
     } finally {
       setIsRegenerating(false);
