@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/sidebar";
 import { MessageSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Printer, Plus } from "lucide-react";
 
 interface InputStateAny {
   product?: { id: string; name?: string; website?: string };
@@ -126,8 +128,10 @@ interface ResultsData {
 
 export default function Results() {
   const [resultsData, setResultsData] = useState<ResultsData | null>(null);
-  const [analyticsResponse, setAnalyticsResponse] = useState<AnalyticsResponse | null>(null);
-  const [currentAnalytics, setCurrentAnalytics] = useState<AnalyticsData | null>(null);
+  const [analyticsResponse, setAnalyticsResponse] =
+    useState<AnalyticsResponse | null>(null);
+  const [currentAnalytics, setCurrentAnalytics] =
+    useState<AnalyticsData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -136,14 +140,18 @@ export default function Results() {
   const accessToken = localStorage.getItem("access_token") || "";
   const navigate = useNavigate();
   const location = useLocation();
-  const pollingRef = useRef<{ productTimer?: number; hasShownStartMessage?: boolean }>({});
+  const pollingRef = useRef<{
+    productTimer?: number;
+    hasShownStartMessage?: boolean;
+  }>({});
   const mountedRef = useRef(true);
 
   const handleNewAnalysis = () => {
     // Get the current product's website from products or analytics
-    const currentWebsite = products[0]?.website || currentAnalytics?.analytics?.brand_website || "";
+    const currentWebsite =
+      products[0]?.website || currentAnalytics?.analytics?.brand_website || "";
     const productId = products[0]?.id || resultsData?.product.id || "";
-    
+
     navigate("/input", {
       state: {
         prefillWebsite: currentWebsite,
@@ -162,10 +170,8 @@ export default function Results() {
     if (state && state.product?.id) {
       const normalized: ResultsData = {
         website:
-          (state.website ||
-            state.product.website ||
-            state.product.name ||
-            "") + "",
+          (state.website || state.product.website || state.product.name || "") +
+          "",
         product: {
           id: state.product.id,
           name: state.product.name || state.product.website || state.product.id,
@@ -209,51 +215,59 @@ export default function Results() {
   const pollProductAnalytics = useCallback(
     async (productId: string) => {
       if (!productId || !accessToken || !mountedRef.current) return;
-      
+
       try {
         const res = await getProductAnalytics(productId, accessToken);
-        
+
         if (!mountedRef.current) return;
 
         if (res && res.analytics && Array.isArray(res.analytics)) {
           setAnalyticsResponse(res);
-          
+
           // Find the most recent completed analysis or the first one
-          const completedAnalysis = res.analytics.find(item => 
-            item.status?.toLowerCase() === "completed"
+          const completedAnalysis = res.analytics.find(
+            (item) => item.status?.toLowerCase() === "completed"
           );
           const analysisToUse = completedAnalysis || res.analytics[0];
-          
+
           if (analysisToUse) {
             // Check if this is a new analysis by comparing dates
             const storedDate = localStorage.getItem("last_analysis_date");
-            const currentDate = analysisToUse.date || analysisToUse.updated_at || analysisToUse.created_at;
-            
+            const currentDate =
+              analysisToUse.date ||
+              analysisToUse.updated_at ||
+              analysisToUse.created_at;
+
             setCurrentAnalytics(analysisToUse);
-            
+
             // Update localStorage with latest analytics data
             if (res.product_id) {
               localStorage.setItem("product_id", res.product_id);
             }
             if (analysisToUse.analytics?.analysis_scope?.search_keywords) {
-              const keywords = analysisToUse.analytics.analysis_scope.search_keywords;
-              localStorage.setItem("keywords", JSON.stringify(keywords.map(k => ({ keyword: k }))));
+              const keywords =
+                analysisToUse.analytics.analysis_scope.search_keywords;
+              localStorage.setItem(
+                "keywords",
+                JSON.stringify(keywords.map((k) => ({ keyword: k })))
+              );
               localStorage.setItem("keyword_count", keywords.length.toString());
             }
-            
+
             // Store the full analytics response in localStorage
             localStorage.setItem("last_analysis_data", JSON.stringify(res));
-          
+
             // Check the status to determine if we should stop polling
             const status = analysisToUse.status?.toLowerCase() || "";
-          
+
             if (status === "completed") {
               // Check if this is a new completed analysis
               if (storedDate && currentDate && storedDate !== currentDate) {
                 // New analysis completed - show success toast
                 toast({
                   title: "Analysis Complete",
-                  description: "Your new analysis is ready! Please refresh the page to see the updated insights.",
+                  description:
+                    "Your new analysis is ready! Please refresh the page to see the updated insights.",
                   duration: 10000,
                 });
                 localStorage.setItem("last_analysis_date", currentDate);
@@ -261,11 +275,11 @@ export default function Results() {
                 // First time storing the date
                 localStorage.setItem("last_analysis_date", currentDate);
               }
-              
+
               // Analysis is complete, stop polling and loading
               setIsLoading(false);
               setError(null);
-              
+
               // Clear any existing timer
               if (pollingRef.current.productTimer) {
                 clearTimeout(pollingRef.current.productTimer);
@@ -274,7 +288,7 @@ export default function Results() {
               // Analysis failed, stop polling but don't show error
               setIsLoading(false);
               setError(null);
-              
+
               // Clear any existing timer
               if (pollingRef.current.productTimer) {
                 clearTimeout(pollingRef.current.productTimer);
@@ -282,21 +296,25 @@ export default function Results() {
             } else {
               // Analysis is still in progress, continue polling every 30 seconds
               setError(null);
-              
+
               // Only show the "analysis started" message once
-              if (!pollingRef.current.hasShownStartMessage && mountedRef.current) {
+              if (
+                !pollingRef.current.hasShownStartMessage &&
+                mountedRef.current
+              ) {
                 toast({
                   title: "Analysis in Progress",
-                  description: "Your analysis is now in progress. This process typically takes around 20 minutes to complete. You'll be notified once it's ready.",
+                  description:
+                    "Your analysis is now in progress. This process typically takes around 20 minutes to complete. You'll be notified once it's ready.",
                   duration: 10000, // Keep it visible until dismissed
                 });
                 pollingRef.current.hasShownStartMessage = true;
               }
-              
+
               if (pollingRef.current.productTimer) {
                 clearTimeout(pollingRef.current.productTimer);
               }
-              
+
               pollingRef.current.productTimer = window.setTimeout(() => {
                 if (mountedRef.current) {
                   pollProductAnalytics(productId);
@@ -308,7 +326,7 @@ export default function Results() {
             if (pollingRef.current.productTimer) {
               clearTimeout(pollingRef.current.productTimer);
             }
-            
+
             pollingRef.current.productTimer = window.setTimeout(() => {
               if (mountedRef.current) {
                 pollProductAnalytics(productId);
@@ -324,7 +342,7 @@ export default function Results() {
         if (pollingRef.current.productTimer) {
           clearTimeout(pollingRef.current.productTimer);
         }
-        
+
         // Retry after 30 seconds on error
         pollingRef.current.productTimer = window.setTimeout(() => {
           if (mountedRef.current) {
@@ -348,7 +366,12 @@ export default function Results() {
   }, [resultsData, pollProductAnalytics]);
 
   // Show loading state if still loading or if analysis is not completed
-  if (isLoading || !resultsData || !currentAnalytics || currentAnalytics.status?.toLowerCase() !== "completed") {
+  if (
+    isLoading ||
+    !resultsData ||
+    !currentAnalytics ||
+    currentAnalytics.status?.toLowerCase() !== "completed"
+  ) {
     return (
       <Layout>
         <div className="container mx-auto px-4 py-20">
@@ -357,7 +380,8 @@ export default function Results() {
               <Search className="w-16 h-16 mx-auto text-muted-foreground mb-4 animate-spin" />
               <h2 className="text-2xl font-bold mb-2">Analysis Started</h2>
               <p className="text-muted-foreground">
-                We are preparing your brand's comprehensive analysis. This strategic process ensures precision in every insight.
+                We are preparing your brand's comprehensive analysis. This
+                strategic process ensures precision in every insight.
               </p>
             </div>
           </div>
@@ -368,7 +392,7 @@ export default function Results() {
 
   // Extract data from API response
   const data = currentAnalytics.analytics;
-  
+
   if (!data) {
     return (
       <Layout>
@@ -396,7 +420,8 @@ export default function Results() {
       },
       breakdown: {
         top_two_mentions: data.ai_visibility?.breakdown?.top_two_mentions || 0,
-        top_five_mentions: data.ai_visibility?.breakdown?.top_five_mentions || 0,
+        top_five_mentions:
+          data.ai_visibility?.breakdown?.top_five_mentions || 0,
         later_mentions: data.ai_visibility?.breakdown?.later_mentions || 0,
         calculation: data.ai_visibility?.breakdown?.calculation,
       },
@@ -417,7 +442,7 @@ export default function Results() {
   // Calculate total mentions per brand from sources_and_content_impact table
   const brandMentionTotals: { [key: string]: number } = {};
   const contentImpact = data.sources_and_content_impact;
-  
+
   if (contentImpact?.header && contentImpact?.rows) {
     // Extract brand names from header (every 3rd column starting from index 1)
     const brandNames: string[] = [];
@@ -447,25 +472,30 @@ export default function Results() {
   });
 
   // Get your brand's total (last brand in the list)
-  const yourBrandTotal = Object.values(brandMentionTotals)[Object.values(brandMentionTotals).length - 1] || 0;
+  const yourBrandTotal =
+    Object.values(brandMentionTotals)[
+      Object.values(brandMentionTotals).length - 1
+    ] || 0;
 
   const handlePrint = () => {
     window.print();
   };
 
   return (
-    <SidebarProvider 
+    <SidebarProvider
       defaultOpen={true}
-      style={{
-        "--sidebar-width": "28rem"
-      } as React.CSSProperties}
+      style={
+        {
+          "--sidebar-width": "28rem",
+        } as React.CSSProperties
+      }
     >
       <Sidebar side="left" collapsible="offcanvas">
         <SidebarContent>
           <ChatSidebar productId={resultsData.product.id} />
         </SidebarContent>
       </Sidebar>
-      
+
       <SidebarInset>
         <Layout sidebarTrigger={<SidebarTrigger className="h-8 w-8" />}>
           <div className="min-h-screen bg-background">
@@ -475,29 +505,55 @@ export default function Results() {
                 brandWebsite={data.brand_website || ""}
                 keywordsAnalyzed={data.analysis_scope?.search_keywords || []}
                 status={data.status || ""}
-                date={currentAnalytics.updated_at || currentAnalytics.created_at || ""}
+                date={
+                  currentAnalytics.updated_at ||
+                  currentAnalytics.created_at ||
+                  ""
+                }
                 modelName={data.model_name || ""}
               />
+              {/* New Analysis Button */}
+              <div className="flex justify-center">
+                <Button
+                  onClick={handleNewAnalysis}
+                  variant="default"
+                  size="lg"
+                  className="gap-2 text-lg px-12 shadow-elevated hover:shadow-glow"
+                >
+                  <Plus className="h-5 w-5" /> New Analysis{" "}
+                </Button>
+              </div>
 
               <OverallInsights
                 insights={insights}
-                executiveSummary={data.executive_summary ? {
-                  brand_score_and_tier: data.executive_summary.brand_score_and_tier || "",
-                  strengths: data.executive_summary.strengths || [],
-                  weaknesses: data.executive_summary.weaknesses || [],
-                  competitor_positioning: {
-                    leaders: data.executive_summary.competitor_positioning?.leaders || [],
-                    mid_tier: data.executive_summary.competitor_positioning?.mid_tier || [],
-                    laggards: data.executive_summary.competitor_positioning?.laggards || [],
-                  },
-                  prioritized_actions: data.executive_summary.prioritized_actions || [],
-                  conclusion: data.executive_summary.conclusion || "",
-                } : undefined}
+                executiveSummary={
+                  data.executive_summary
+                    ? {
+                        brand_score_and_tier:
+                          data.executive_summary.brand_score_and_tier || "",
+                        strengths: data.executive_summary.strengths || [],
+                        weaknesses: data.executive_summary.weaknesses || [],
+                        competitor_positioning: {
+                          leaders:
+                            data.executive_summary.competitor_positioning
+                              ?.leaders || [],
+                          mid_tier:
+                            data.executive_summary.competitor_positioning
+                              ?.mid_tier || [],
+                          laggards:
+                            data.executive_summary.competitor_positioning
+                              ?.laggards || [],
+                        },
+                        prioritized_actions:
+                          data.executive_summary.prioritized_actions || [],
+                        conclusion: data.executive_summary.conclusion || "",
+                      }
+                    : undefined
+                }
                 yourBrandTotal={yourBrandTotal}
                 topBrand={topBrand}
                 topBrandTotal={topBrandTotal}
               />
-
               {data.sources_and_content_impact &&
                 data.sources_and_content_impact.header &&
                 data.sources_and_content_impact.rows && (
@@ -510,7 +566,6 @@ export default function Results() {
                     brandName={data.brand_name || ""}
                   />
                 )}
-
               {(data.competitor_visibility_table?.header &&
                 data.competitor_visibility_table?.rows) ||
               (data.competitor_sentiment_table?.header &&
@@ -518,24 +573,25 @@ export default function Results() {
                 <CompetitorAnalysis
                   brandName={data.brand_name || ""}
                   analysis={{
-                    competitor_visibility_table: data.competitor_visibility_table?.header &&
+                    competitor_visibility_table:
+                      data.competitor_visibility_table?.header &&
                       data.competitor_visibility_table?.rows
-                      ? {
-                          header: data.competitor_visibility_table.header,
-                          rows: data.competitor_visibility_table.rows,
-                        }
-                      : undefined,
-                    competitor_sentiment_table: data.competitor_sentiment_table?.header &&
+                        ? {
+                            header: data.competitor_visibility_table.header,
+                            rows: data.competitor_visibility_table.rows,
+                          }
+                        : undefined,
+                    competitor_sentiment_table:
+                      data.competitor_sentiment_table?.header &&
                       data.competitor_sentiment_table?.rows
-                      ? {
-                          header: data.competitor_sentiment_table.header,
-                          rows: data.competitor_sentiment_table.rows,
-                        }
-                      : undefined,
+                        ? {
+                            header: data.competitor_sentiment_table.header,
+                            rows: data.competitor_sentiment_table.rows,
+                          }
+                        : undefined,
                   }}
                 />
               ) : null}
-
               {data.sources_and_content_impact &&
                 data.sources_and_content_impact.header &&
                 data.sources_and_content_impact.rows &&
@@ -549,10 +605,9 @@ export default function Results() {
                     }}
                   />
                 )}
-
               {data.recommendations && data.recommendations.length > 0 && (
                 <Recommendations
-                  recommendations={data.recommendations.map(rec => ({
+                  recommendations={data.recommendations.map((rec) => ({
                     overall_insight: rec.overall_insight || "",
                     suggested_action: rec.suggested_action || "",
                     overall_effort: rec.overall_effort || "",
@@ -560,6 +615,11 @@ export default function Results() {
                   }))}
                 />
               )}
+              <div className="flex justify-center pt-8">
+                <Button onClick={handlePrint} size="lg" className="gap-2">
+                  <Printer className="h-5 w-5" /> Download Report
+                </Button>
+              </div>
             </div>
           </div>
         </Layout>
