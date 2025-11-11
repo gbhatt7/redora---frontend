@@ -104,10 +104,16 @@ export const login = async (payload: LoginRequest): Promise<LoginResponse> => {
   return res.data;
 };
 
-export const register = async (payload: RegisterRequest): Promise<RegisterResponse | null> => {
+export const register = async (
+  payload: RegisterRequest
+): Promise<RegisterResponse | null> => {
   try {
-    const res: AxiosResponse<RegisterResponse> = await API.post(API_ENDPOINTS.register, payload);
+    const res: AxiosResponse<RegisterResponse> = await API.post(
+      API_ENDPOINTS.register,
+      payload
+    );
 
+    // Store tokens if registration successful
     if (res.data.access_token) {
       localStorage.setItem("access_token", res.data.access_token);
     }
@@ -116,9 +122,17 @@ export const register = async (payload: RegisterRequest): Promise<RegisterRespon
     }
 
     return res.data;
-  } catch (error) {
-    console.error('Register error:', error);
-    throw error;
+  } catch (error: any) {
+    console.error("Register error:", error);
+
+    // Extract message from backend
+    const backendMessage =
+      error.response?.data?.error ||
+      error.response?.data?.message ||
+      "Registration failed. Please try again.";
+
+    // Throw clean error message (no toast here)
+    throw new Error(backendMessage);
   }
 };
 

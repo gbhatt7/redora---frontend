@@ -91,12 +91,6 @@ export const SourceAnalysis = ({
     const tier = getMentionTier(mentionRatio);
     const depthNote = contentImpact.depth_notes?.[brandName]?.[sourceName];
 
-    const lastCell = row[row.length - 1];
-    const rowPagesUsed: string[] = Array.isArray(lastCell) ? lastCell : [];
-
-    const pagesUsed: string[] =
-      rowPagesUsed.length > 0 ? rowPagesUsed : depthNote?.pages_used || [];
-
     // Split names by space, slash, or backslash
     const shortCategory = sourceName.split(/[\s\\/]+/).join("\n");
 
@@ -107,7 +101,7 @@ export const SourceAnalysis = ({
       mentionRatio,
       score: tier,
       insight: depthNote?.insight || "",
-      pages_used: pagesUsed,
+      pages_used: depthNote?.pages_used || [],
     };
   });
 
@@ -260,9 +254,9 @@ export const SourceAnalysis = ({
                           ))}
                         </ul>
                       ) : Array.isArray(source.pages_used) && source.pages_used.includes("Absent") ? (
-                        "No listed pages"
+                        "No pages found"
                       ) : (
-                        "No pages listed"
+                        "No pages found"
                       )}
                     </TableCell>
                   </TableRow>

@@ -110,17 +110,15 @@ const Index = () => {
 
   const handleNewAnalysis = async () => {
     if (!user) {
-      // Not logged in → go to login
       navigate("/login");
       return;
     }
-
+  
     try {
       const accessToken = localStorage.getItem("access_token") || "";
       const applicationId = localStorage.getItem("application_id") || "";
   
       if (!applicationId) {
-        // No application ID → go to input
         navigate("/input");
         return;
       }
@@ -129,21 +127,25 @@ const Index = () => {
   
       if (products && Array.isArray(products) && products.length > 0) {
         const lastProduct = products[products.length - 1];
-        
-        // Navigate to input page with pre-populated website
+        const currentWebsite =
+          lastProduct.website || lastProduct.name || "";
+  
         navigate("/input", {
           state: {
-            prefilledWebsite: lastProduct.website || lastProduct.name,
+            prefillWebsite: currentWebsite,
+            productId: lastProduct.id,
+            isNewAnalysis: true,
+            disableWebsiteEdit: true,
           },
         });
       } else {
-        // No products → go to input page
         navigate("/input");
       }
     } catch (error) {
-      navigate("/input"); // fallback
+      console.error("Error in handleNewAnalysis:", error);
+      navigate("/input");
     }
-  };
+  };  
 
   const handlePreviousAnalysis = async () => {
     if (!user) {

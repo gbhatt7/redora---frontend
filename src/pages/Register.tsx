@@ -49,23 +49,40 @@ const Register = () => {
 
     try {
       await register(email, password, fullName);
-      
-      // Store email for verification page
-      localStorage.setItem('pending_verification_email', email);
-      
+    
+      localStorage.setItem("pending_verification_email", email);
+    
       toast({
         title: "Account created!",
         description: "Please check your email to verify your account.",
       });
-      
+    
       navigate("/email-verification-pending");
-    } catch (error) {
-      toast({
-        title: "Registration failed",
-        description: "Please try again with different information.",
-        variant: "destructive",
-      });
-    }
+    } catch (error: any) {
+      console.error("Registration error:", error);
+    
+      // Extract backend error message if available
+      const backendMessage =
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        error.message ||
+        "Registration failed. Please try again.";
+    
+      // Handle known error: existing user
+      if (backendMessage.toLowerCase().includes("already exists")) {
+        toast({
+          title: "User already exists",
+          description: "An account with this email already exists. Please try with some other email.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Registration failed",
+          description: backendMessage,
+          variant: "destructive",
+        });
+      }
+    }    
   };
 
   return (
