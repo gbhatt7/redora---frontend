@@ -424,3 +424,47 @@ export const sendChatMessage = async (
     return null;
   }
 };
+
+/* =====================
+   DASHBOARD HELPERS
+   ===================== */
+export interface DashboardUser {
+  id: string;
+  user_id: string;
+  email: string;
+  name: string;
+  product_website: string;
+  keywords_list: string[];
+  results_generated?: boolean;
+  analytics_generated?: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export const getDashboardUsers = async (
+  accessToken?: string
+): Promise<DashboardUser[]> => {
+  try {
+    const headers: any = {};
+    if (accessToken) {
+      headers.Authorization = `Bearer ${accessToken}`;
+    }
+    
+    const res = await API.get(API_ENDPOINTS.dashboardUsers, {
+      headers,
+    });
+    return res?.data || [];
+  } catch (error: any) {
+    console.error('Failed to get dashboard users:', error);
+    
+    // Extract error message from backend response
+    const errorMessage = 
+      error.response?.data?.error ||
+      error.response?.data?.message ||
+      error.message ||
+      'Failed to fetch dashboard users';
+    
+    // Throw error with backend message so it can be handled by the component
+    throw new Error(errorMessage);
+  }
+};

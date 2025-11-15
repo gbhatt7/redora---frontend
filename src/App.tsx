@@ -13,6 +13,7 @@ import VerifyEmail from "./pages/VerifyEmail";
 import EmailVerificationPending from "./pages/EmailVerificationPending";
 import InputPage from "./pages/InputPage";
 import Results from "./pages/Results";
+import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 import { ScrollToTop } from "./ScrollToTop";
 
@@ -36,6 +37,7 @@ const App = () => (
             <Route path="/email-verification-pending" element={<EmailVerificationPending />} />
             <Route path="/input" element={<InputPage />} />
             <Route path="/results" element={<Results />} />
+            <Route path="/dashboard" element={<Dashboard />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
