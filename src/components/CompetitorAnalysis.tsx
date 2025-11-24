@@ -89,23 +89,24 @@ export const CompetitorAnalysis = ({
               </CardTitle>
             </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {analysis.competitor_visibility_table.header.map(
-                    (header, index) => (
-                      <TableHead
-                        key={index}
-                        className={
-                          index === 0 ? "font-semibold" : "text-center"
-                        }
-                      >
-                        {header}
-                      </TableHead>
-                    )
-                  )}
-                </TableRow>
-              </TableHeader>
+            <div className="w-full">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {analysis.competitor_visibility_table.header.map(
+                      (header, index) => (
+                        <TableHead
+                          key={index}
+                          className={
+                            index === 0 ? "font-semibold" : "text-center font-semibold"
+                          }
+                        >
+                          {header}
+                        </TableHead>
+                      )
+                    )}
+                  </TableRow>
+                </TableHeader>
               <TableBody>
                 {analysis.competitor_visibility_table.rows.map(
                   (row, rowIndex) => {
@@ -138,7 +139,8 @@ export const CompetitorAnalysis = ({
                   }
                 )}
               </TableBody>
-            </Table>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -160,16 +162,17 @@ export const CompetitorAnalysis = ({
               </CardTitle>
             </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="font-bold">Brand</TableHead>
-                  <TableHead className="font-bold">Sentiment Summary</TableHead>
-                  <TableHead className="text-center font-bold">
-                    Overall Outlook
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
+            <div className="w-full">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="font-bold">Brand</TableHead>
+                    <TableHead className="font-bold">Sentiment Summary</TableHead>
+                    <TableHead className="text-center font-bold">
+                      Overall Outlook
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
               <TableBody>
                 {analysis.competitor_sentiment_table.rows.map(
                   (row, rowIndex) => {
@@ -203,7 +206,8 @@ export const CompetitorAnalysis = ({
                   }
                 )}
               </TableBody>
-            </Table>
+              </Table>
+            </div>
           </CardContent>
         </Card>
         )}

@@ -212,16 +212,17 @@ export const SourceAnalysis = ({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Source</TableHead>
-                  <TableHead className="text-center">Mentions</TableHead>
-                  <TableHead className="text-center">Tier</TableHead>
-                  <TableHead>Insights</TableHead>
-                  <TableHead>Pages Used</TableHead>
-                </TableRow>
-              </TableHeader>
+            <div className="w-full">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="font-semibold">Source</TableHead>
+                    <TableHead className="text-center font-semibold">Mentions</TableHead>
+                    <TableHead className="text-center font-semibold">Tier</TableHead>
+                    <TableHead className="font-semibold">Insights</TableHead>
+                    <TableHead className="font-semibold">Pages Used</TableHead>
+                  </TableRow>
+                </TableHeader>
               <TableBody>
                 {sources.map((source, index) => (
                   <TableRow key={index}>
@@ -262,7 +263,8 @@ export const SourceAnalysis = ({
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       </div>

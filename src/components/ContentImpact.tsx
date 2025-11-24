@@ -108,92 +108,87 @@ export const ContentImpact = ({
               Platform-wise Brand Performance
             </CardTitle>
           </CardHeader>
-          <CardContent className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="min-w-[150px] font-bold">
-                    Platform
-                  </TableHead>
-                  {brandNames.slice(0, -1).map((brand, i) => (
-                    <TableHead
-                      key={i}
-                      className="text-center min-w-[120px] font-bold"
-                    >
-                      Competitor {i + 1}
+          <CardContent>
+            <div className="w-full">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="font-bold">
+                      Platform
                     </TableHead>
-                  ))}
-                  <TableHead className="text-center min-w-[120px] font-bold bg-primary/5 border-primary border-b-2 text-primary">
-                    Your Brand
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {contentImpact.rows.map((row, rowIndex) => {
-                  const sourceName = row[0] as string;
+                    {brandNames.map((brand, i) => {
+                      const isYourBrand = i === brandNames.length - 1;
+                      return (
+                        <TableHead
+                          key={i}
+                          className={`text-center font-bold ${
+                            isYourBrand ? "bg-primary/5 text-primary" : ""
+                          }`}
+                        >
+                          {brand}
+                        </TableHead>
+                      );
+                    })}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {contentImpact.rows.map((row, rowIndex) => {
+                    const sourceName = row[0] as string;
 
-                  // Find the highest mention count in this row across all brands
-                  const mentionCounts: number[] = [];
-                  for (let i = 0; i < brandNames.length; i++) {
-                    mentionCounts.push(row[1 + i * 3 + 1] as number);
-                  }
-                  const maxMentions = Math.max(...mentionCounts);
+                    // Find the highest mention count in this row across all brands
+                    const mentionCounts: number[] = [];
+                    for (let i = 0; i < brandNames.length; i++) {
+                      mentionCounts.push(row[1 + i * 3 + 1] as number);
+                    }
+                    const maxMentions = Math.max(...mentionCounts);
 
-                  return (
-                    <TableRow key={rowIndex}>
-                      <TableCell className="font-semibold">
-                        {sourceName}
-                      </TableCell>
-                      {brandNames.map((brand, index) => {
-                        // Each brand has mentions and score in the row
-                        const mentions = row[1 + index * 3 + 1] as number;
+                    return (
+                      <TableRow key={rowIndex}>
+                        <TableCell className="font-semibold">
+                          {sourceName}
+                        </TableCell>
+                        {brandNames.map((brand, index) => {
+                          // Each brand has mentions and score in the row
+                          const mentions = row[1 + index * 3 + 1] as number;
 
-                        // Calculate mention ratio: (brand mentions / max mentions) × 100
-                        const mentionRatio =
-                          maxMentions > 0 ? (mentions / maxMentions) * 100 : 0;
+                          // Calculate mention ratio: (brand mentions / max mentions) × 100
+                          const mentionRatio =
+                            maxMentions > 0 ? (mentions / maxMentions) * 100 : 0;
 
-                        // Get tier based on ratio
-                        const tier = getMentionTier(mentionRatio);
+                          // Get tier based on ratio
+                          const tier = getMentionTier(mentionRatio);
 
-                        // check if this brand column is "your brand"
-                        const isYourBrand = index === brandNames.length - 1;
+                          // check if this brand column is "your brand"
+                          const isYourBrand = index === brandNames.length - 1;
 
-                        return (
-                          <TableCell
-                            key={index}
-                            className={`text-center ${
-                              isYourBrand ? "bg-primary/5" : ""
-                            }`}
-                          >
-                            <div className="space-y-1">
-                              <div
-                                className={`text-sm ${
-                                  isYourBrand
-                                    ? "font-bold text-primary"
-                                    : "text-foreground"
-                                }`}
-                              >
-                                {brand}
+                          return (
+                            <TableCell
+                              key={index}
+                              className={`text-center ${
+                                isYourBrand ? "bg-primary/5" : ""
+                              }`}
+                            >
+                              <div className="space-y-1">
+                                <div
+                                  className={`font-semibold ${
+                                    isYourBrand ? "text-primary font-bold" : ""
+                                  }`}
+                                >
+                                  Mentions: {mentions}
+                                </div>
+                                <Badge className={getMentionScoreColor(tier)}>
+                                  {tier}
+                                </Badge>
                               </div>
-                              <div
-                                className={`font-semibold ${
-                                  isYourBrand ? "text-primary font-bold" : ""
-                                }`}
-                              >
-                                Mentions: {mentions}
-                              </div>
-                              <Badge className={getMentionScoreColor(tier)}>
-                                {tier}
-                              </Badge>
-                            </div>
-                          </TableCell>
-                        );
-                      })}
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                            </TableCell>
+                          );
+                        })}
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       </div>

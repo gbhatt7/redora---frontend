@@ -223,7 +223,7 @@ export default function InputPage() {
         setTimeout(() => {
           toast({
             title: "Analysis in Progress",
-            description: "Your analysis is now in progress. This process typically takes around 20 minutes to complete. You'll be notified once it's ready.",
+            description: "Your analysis has begun. Please stay on this page, you'll receive a notification here when it's ready.",
             duration: 10000,
           });
 
@@ -262,7 +262,7 @@ export default function InputPage() {
         setTimeout(() => {
           toast({
             title: "Analysis in Progress",
-            description: "Your analysis is now in progress. This process typically takes around 20 minutes to complete. You'll be notified once it's ready.",
+            description: "Your analysis has begun. Please stay on this page, you'll receive a notification here when it's ready.",
             duration: 10000,
           });
 

@@ -334,3 +334,67 @@ All colors MUST be HSL. Inspired by GeoRankers branding with blue gradients.
     display: none;
   }
 }
+
+@layer utilities {
+  /* Print styles for download/print functionality */
+  @media print {
+    /* Ensure all content is visible and not cut off */
+    * {
+      overflow: visible !important;
+    }
+
+    /* Hide sidebar and navigation during print */
+    [data-sidebar],
+    button,
+    .no-print {
+      display: none !important;
+    }
+
+    /* Ensure tables display fully without scrolling */
+    table {
+      width: 100% !important;
+      page-break-inside: avoid;
+    }
+
+    /* Ensure cards don't get cut off between pages */
+    .card,
+    [class*="Card"] {
+      page-break-inside: avoid;
+    }
+
+    /* Remove any scrollbars or overflow hidden */
+    .overflow-x-auto,
+    .overflow-hidden {
+      overflow: visible !important;
+    }
+
+    /* Ensure charts and graphs are visible */
+    svg,
+    canvas {
+      max-width: 100% !important;
+      height: auto !important;
+    }
+
+    /* Adjust page margins for better print */
+    @page {
+      margin: 1.5cm;
+      size: A4;
+    }
+
+    /* Ensure text is readable */
+    body {
+      font-size: 10pt;
+      line-height: 1.4;
+    }
+
+    /* Make headings stand out */
+    h1, h2, h3, h4 {
+      page-break-after: avoid;
+    }
+
+    /* Ensure full width tables */
+    .w-full {
+      width: 100% !important;
+    }
+  }
+}

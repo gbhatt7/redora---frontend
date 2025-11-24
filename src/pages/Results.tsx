@@ -132,6 +132,9 @@ export default function Results() {
     useState<AnalyticsResponse | null>(null);
   const [currentAnalytics, setCurrentAnalytics] =
     useState<AnalyticsData | null>(null);
+  // NEW: Track previous completed analytics to show while new analysis is in progress
+  const [previousAnalytics, setPreviousAnalytics] =
+    useState<AnalyticsData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -211,7 +214,7 @@ export default function Results() {
     };
   }, []);
 
-  // Poll product analytics function
+  // NEW: Poll product analytics function with improved logic
   const pollProductAnalytics = useCallback(
     async (productId: string) => {
       if (!productId || !accessToken || !mountedRef.current) return;
@@ -224,29 +227,19 @@ export default function Results() {
         if (res && res.analytics && Array.isArray(res.analytics)) {
           setAnalyticsResponse(res);
 
-          // Find the most recent completed analysis or the first one
-          const completedAnalysis = res.analytics.find(
-            (item) => item.status?.toLowerCase() === "completed"
-          );
-          const analysisToUse = completedAnalysis || res.analytics[0];
-
-          if (analysisToUse) {
-            // Check if this is a new analysis by comparing dates
-            const storedDate = localStorage.getItem("last_analysis_date");
-            const currentDate =
-              analysisToUse.date ||
-              analysisToUse.updated_at ||
-              analysisToUse.created_at;
-
-            setCurrentAnalytics(analysisToUse);
-
-            // Update localStorage with latest analytics data
+          // Find the most recent analysis (completed or not)
+          const mostRecentAnalysis = res.analytics[0];
+          
+          if (mostRecentAnalysis) {
+            const currentStatus = mostRecentAnalysis.status?.toLowerCase() || "";
+            const currentDate = mostRecentAnalysis.date || mostRecentAnalysis.updated_at || mostRecentAnalysis.created_at;
+            
+            // Update basic product info in localStorage
             if (res.product_id) {
               localStorage.setItem("product_id", res.product_id);
             }
-            if (analysisToUse.analytics?.analysis_scope?.search_keywords) {
-              const keywords =
-                analysisToUse.analytics.analysis_scope.search_keywords;
+            if (mostRecentAnalysis.analytics?.analysis_scope?.search_keywords) {
+              const keywords = mostRecentAnalysis.analytics.analysis_scope.search_keywords;
               localStorage.setItem(
                 "keywords",
                 JSON.stringify(keywords.map((k) => ({ keyword: k })))
@@ -254,84 +247,119 @@ export default function Results() {
               localStorage.setItem("keyword_count", keywords.length.toString());
             }
 
-            // Store the full analytics response in localStorage
-            localStorage.setItem("last_analysis_data", JSON.stringify(res));
-
-            // Check the status to determine if we should stop polling
-            const status = analysisToUse.status?.toLowerCase() || "";
-
-            if (status === "completed") {
-              // Check if this is a new completed analysis
-              if (storedDate && currentDate && storedDate !== currentDate) {
-                // New analysis completed - show success toast
-                toast({
-                  title: "Analysis Complete",
-                  description:
-                    "Your new analysis is ready! Please refresh the page to see the updated insights.",
-                  duration: 10000,
-                });
-                localStorage.setItem("last_analysis_date", currentDate);
-              } else if (!storedDate && currentDate) {
-                // First time storing the date
-                localStorage.setItem("last_analysis_date", currentDate);
+            // NEW FLOW LOGIC: Handle error, in_progress, and completed statuses
+            if (currentStatus === "error" || currentStatus === "in_progress") {
+              // Current analysis is error or in_progress
+              
+              setCurrentAnalytics(mostRecentAnalysis);
+              
+              // Check if we have a previous completed analysis
+              if (previousAnalytics && previousAnalytics.status?.toLowerCase() === "completed") {
+                // Show previous completed data, but keep polling in background
+                // DON'T show loader in this case
+                setIsLoading(false);
+                
+                // Show "analysis in progress" toast only once
+                if (!pollingRef.current.hasShownStartMessage && mountedRef.current) {
+                  toast({
+                    title: "Analysis in Progress",
+                    description: "Your analysis has begun. Please stay on this page, you'll receive a notification here when it's ready.",
+                    duration: 10000,
+                  });
+                  pollingRef.current.hasShownStartMessage = true;
+                }
+              } else {
+                // No previous completed analysis, SHOW LOADER
+                setIsLoading(true);
+                
+                // Show "analysis in progress" toast only once
+                if (!pollingRef.current.hasShownStartMessage && mountedRef.current) {
+                  toast({
+                    title: "Analysis in Progress",
+                    description: "Your analysis has begun. Please stay on this page, you'll receive a notification here when it's ready.",
+                    duration: 10000,
+                  });
+                  pollingRef.current.hasShownStartMessage = true;
+                }
               }
-
-              // Analysis is complete, stop polling and loading
-              setIsLoading(false);
+              
+              // Continue polling every 30 seconds
               setError(null);
-
-              // Clear any existing timer
               if (pollingRef.current.productTimer) {
                 clearTimeout(pollingRef.current.productTimer);
               }
-            } else if (status === "failed") {
-              // Analysis failed, stop polling but don't show error
-              setIsLoading(false);
-              setError(null);
-
-              // Clear any existing timer
-              if (pollingRef.current.productTimer) {
-                clearTimeout(pollingRef.current.productTimer);
-              }
-            } else {
-              // Analysis is still in progress, continue polling every 30 seconds
-              setError(null);
-
-              // Only show the "analysis started" message once
-              if (
-                !pollingRef.current.hasShownStartMessage &&
-                mountedRef.current
-              ) {
-                toast({
-                  title: "Analysis in Progress",
-                  description:
-                    "Your analysis is now in progress. This process typically takes around 20 minutes to complete. You'll be notified once it's ready.",
-                  duration: 10000, // Keep it visible until dismissed
-                });
-                pollingRef.current.hasShownStartMessage = true;
-              }
-
-              if (pollingRef.current.productTimer) {
-                clearTimeout(pollingRef.current.productTimer);
-              }
-
               pollingRef.current.productTimer = window.setTimeout(() => {
                 if (mountedRef.current) {
                   pollProductAnalytics(productId);
                 }
-              }, 30000); // Poll every 30 seconds
+              }, 30000);
+              
+            } else if (currentStatus === "completed") {
+              // Current analysis is completed
+              
+              setCurrentAnalytics(mostRecentAnalysis);
+              setIsLoading(false);
+              setError(null);
+              
+              // Check if this is a NEW completed analysis (date comparison)
+              const previousDate = previousAnalytics?.date || previousAnalytics?.updated_at || previousAnalytics?.created_at;
+              
+              if (previousDate && currentDate && currentDate > previousDate) {
+                // New analysis completed - show success toast
+                toast({
+                  title: "Analysis Updated",
+                  description: "Your updated analysis is now available on this page. Refresh if you don't see the latest insights.",
+                  duration: 10000,
+                });
+              }
+              
+              // Update previous to current (only if completed)
+              setPreviousAnalytics(mostRecentAnalysis);
+              
+              // IMPORTANT: Store the full analytics response in localStorage ONLY when completed
+              localStorage.setItem("last_analysis_data", JSON.stringify(res));
+              
+              // Store the date for future comparisons
+              if (currentDate) {
+                localStorage.setItem("last_analysis_date", currentDate);
+              }
+              
+              // Stop polling since analysis is complete
+              if (pollingRef.current.productTimer) {
+                clearTimeout(pollingRef.current.productTimer);
+              }
+              
+            } else {
+              // Unknown status - treat as in progress
+              setCurrentAnalytics(mostRecentAnalysis);
+              
+              if (previousAnalytics && previousAnalytics.status?.toLowerCase() === "completed") {
+                setIsLoading(false);
+              } else {
+                setIsLoading(true);
+              }
+              
+              // Continue polling
+              if (pollingRef.current.productTimer) {
+                clearTimeout(pollingRef.current.productTimer);
+              }
+              pollingRef.current.productTimer = window.setTimeout(() => {
+                if (mountedRef.current) {
+                  pollProductAnalytics(productId);
+                }
+              }, 30000);
             }
           } else {
-            // No analysis data found, continue polling
+            // No analysis data found, show loader and continue polling
+            setIsLoading(true);
             if (pollingRef.current.productTimer) {
               clearTimeout(pollingRef.current.productTimer);
             }
-
             pollingRef.current.productTimer = window.setTimeout(() => {
               if (mountedRef.current) {
                 pollProductAnalytics(productId);
               }
-            }, 30000); // Poll every 30 seconds
+            }, 30000);
           }
         } else {
           throw new Error("Invalid response format");
@@ -351,8 +379,28 @@ export default function Results() {
         }, 30000);
       }
     },
-    [accessToken]
+    [accessToken, previousAnalytics, toast]
   );
+
+  // NEW: Load previous completed analysis from localStorage on mount
+  useEffect(() => {
+    const lastAnalysisData = localStorage.getItem("last_analysis_data");
+    if (lastAnalysisData) {
+      try {
+        const parsed = JSON.parse(lastAnalysisData);
+        if (parsed.analytics && parsed.analytics.length > 0) {
+          const lastCompleted = parsed.analytics.find(
+            (a: AnalyticsData) => a.status?.toLowerCase() === "completed"
+          );
+          if (lastCompleted) {
+            setPreviousAnalytics(lastCompleted);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to parse last analysis data:", e);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (resultsData?.product?.id) {
@@ -365,13 +413,28 @@ export default function Results() {
     }
   }, [resultsData, pollProductAnalytics]);
 
-  // Show loading state if still loading or if analysis is not completed
-  if (
-    isLoading ||
-    !resultsData ||
-    !currentAnalytics ||
-    currentAnalytics.status?.toLowerCase() !== "completed"
-  ) {
+  // NEW: Determine what to display based on flow logic
+  // Show loader ONLY if no previous completed data exists AND current is not completed
+  const shouldShowLoader = isLoading || !resultsData || !currentAnalytics;
+  
+  // Determine which analytics to display
+  const displayAnalytics = (() => {
+    if (!currentAnalytics) return null;
+    
+    const currentStatus = currentAnalytics.status?.toLowerCase() || "";
+    
+    // If current is error or in_progress AND we have previous completed data, show previous
+    if ((currentStatus === "error" || currentStatus === "in_progress") && 
+        previousAnalytics && 
+        previousAnalytics.status?.toLowerCase() === "completed") {
+      return previousAnalytics;
+    }
+    
+    // Otherwise show current
+    return currentAnalytics;
+  })();
+
+  if (shouldShowLoader && !displayAnalytics) {
     return (
       <Layout>
         <div className="container mx-auto px-4 py-20">
@@ -390,8 +453,8 @@ export default function Results() {
     );
   }
 
-  // Extract data from API response
-  const data = currentAnalytics.analytics;
+  // NEW: Extract data from the analytics we're displaying (either current or previous)
+  const data = displayAnalytics?.analytics;
 
   if (!data) {
     return (
@@ -506,8 +569,8 @@ export default function Results() {
                 keywordsAnalyzed={data.analysis_scope?.search_keywords || []}
                 status={data.status || ""}
                 date={
-                  currentAnalytics.updated_at ||
-                  currentAnalytics.created_at ||
+                  displayAnalytics?.updated_at ||
+                  displayAnalytics?.created_at ||
                   ""
                 }
                 modelName={data.model_name || ""}
