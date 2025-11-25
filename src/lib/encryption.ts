@@ -2,7 +2,7 @@
 import CryptoJS from 'crypto-js';
 
 const ENCRYPTION_KEY = import.meta.env.VITE_ENCRYPTION_KEY;
-const SALT = 'georankers-salt-2024'; //change it to import.meta.env.VITE_SALT
+const SALT = import.meta.env.VITE_SALT;
 
 export const encryptPassword = (password: string): string => {
   try {
