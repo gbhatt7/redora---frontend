@@ -76,59 +76,76 @@ export const Recommendations = ({ recommendations }: RecommendationsProps) => {
           </Tooltip>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Actionable Insights</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>
-                    <div className="flex items-center gap-2">
-                      Overall Insight
-                    </div>
-                  </TableHead>
-                  <TableHead>
-                    <div className="flex items-center gap-2">
-                      Suggested Action
-                    </div>
-                  </TableHead>
-                  <TableHead className="text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      Effort
-                    </div>
-                  </TableHead>
-                  <TableHead className="text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      Impact
-                    </div>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recommendations.map((rec, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="font-medium">
-                      {rec.overall_insight}
-                    </TableCell>
-                    <TableCell>{rec.suggested_action}</TableCell>
-                    <TableCell className="text-center">
-                      <Badge className={getEffortColor(rec.overall_effort)}>
-                        {rec.overall_effort}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge className={getImpactColor(rec.impact)}>
-                        {rec.impact}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        {/* TRIPLE WRAPPER for maximum break prevention */}
+        <div
+          style={{
+            pageBreakInside: "avoid",
+            breakInside: "avoid",
+            display: "block",
+          }}
+        >
+          <Card style={{ pageBreakInside: "avoid", breakInside: "avoid" }}>
+            <CardHeader>
+              <CardTitle>Actionable Insights</CardTitle>
+            </CardHeader>
+            <CardContent
+              style={{ pageBreakInside: "avoid", breakInside: "avoid" }}
+            >
+              <div style={{ pageBreakInside: "avoid", breakInside: "avoid" }}>
+                <Table
+                  className="table-fixed w-full"
+                  style={{ pageBreakInside: "avoid", breakInside: "avoid" }}
+                >
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-1/3 whitespace-normal break-words">
+                        Overall Insight
+                      </TableHead>
+                      <TableHead className="w-1/3 whitespace-normal break-words">
+                        Suggested Action
+                      </TableHead>
+                      <TableHead className="w-1/6 text-center">
+                        Effort
+                      </TableHead>
+                      <TableHead className="w-1/6 text-center">
+                        Impact
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+
+                  <TableBody>
+                    {recommendations.map((rec, index) => (
+                      <TableRow
+                        key={index}
+                        style={{
+                          pageBreakInside: "avoid",
+                          breakInside: "avoid",
+                        }}
+                      >
+                        <TableCell className="whitespace-normal break-words">
+                          {rec.overall_insight}
+                        </TableCell>
+                        <TableCell className="whitespace-normal break-words">
+                          {rec.suggested_action}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge className={getEffortColor(rec.overall_effort)}>
+                            {rec.overall_effort}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge className={getImpactColor(rec.impact)}>
+                            {rec.impact}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </TooltipProvider>
   );

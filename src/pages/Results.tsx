@@ -132,7 +132,6 @@ export default function Results() {
     useState<AnalyticsResponse | null>(null);
   const [currentAnalytics, setCurrentAnalytics] =
     useState<AnalyticsData | null>(null);
-  // NEW: Track previous completed analytics to show while new analysis is in progress
   const [previousAnalytics, setPreviousAnalytics] =
     useState<AnalyticsData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -150,7 +149,6 @@ export default function Results() {
   const mountedRef = useRef(true);
 
   const handleNewAnalysis = () => {
-    // Get the current product's website from products or analytics
     const currentWebsite =
       products[0]?.website || currentAnalytics?.analytics?.brand_website || "";
     const productId = products[0]?.id || resultsData?.product.id || "";
@@ -214,7 +212,7 @@ export default function Results() {
     };
   }, []);
 
-  // NEW: Poll product analytics function with improved logic
+  // Poll product analytics function
   const pollProductAnalytics = useCallback(
     async (productId: string) => {
       if (!productId || !accessToken || !mountedRef.current) return;
@@ -227,19 +225,22 @@ export default function Results() {
         if (res && res.analytics && Array.isArray(res.analytics)) {
           setAnalyticsResponse(res);
 
-          // Find the most recent analysis (completed or not)
           const mostRecentAnalysis = res.analytics[0];
-          
+
           if (mostRecentAnalysis) {
-            const currentStatus = mostRecentAnalysis.status?.toLowerCase() || "";
-            const currentDate = mostRecentAnalysis.date || mostRecentAnalysis.updated_at || mostRecentAnalysis.created_at;
-            
-            // Update basic product info in localStorage
+            const currentStatus =
+              mostRecentAnalysis.status?.toLowerCase() || "";
+            const currentDate =
+              mostRecentAnalysis.date ||
+              mostRecentAnalysis.updated_at ||
+              mostRecentAnalysis.created_at;
+
             if (res.product_id) {
               localStorage.setItem("product_id", res.product_id);
             }
             if (mostRecentAnalysis.analytics?.analysis_scope?.search_keywords) {
-              const keywords = mostRecentAnalysis.analytics.analysis_scope.search_keywords;
+              const keywords =
+                mostRecentAnalysis.analytics.analysis_scope.search_keywords;
               localStorage.setItem(
                 "keywords",
                 JSON.stringify(keywords.map((k) => ({ keyword: k })))
@@ -247,43 +248,44 @@ export default function Results() {
               localStorage.setItem("keyword_count", keywords.length.toString());
             }
 
-            // NEW FLOW LOGIC: Handle error, in_progress, and completed statuses
             if (currentStatus === "error" || currentStatus === "in_progress") {
-              // Current analysis is error or in_progress
-              
               setCurrentAnalytics(mostRecentAnalysis);
-              
-              // Check if we have a previous completed analysis
-              if (previousAnalytics && previousAnalytics.status?.toLowerCase() === "completed") {
-                // Show previous completed data, but keep polling in background
-                // DON'T show loader in this case
+
+              if (
+                previousAnalytics &&
+                previousAnalytics.status?.toLowerCase() === "completed"
+              ) {
                 setIsLoading(false);
-                
-                // Show "analysis in progress" toast only once
-                if (!pollingRef.current.hasShownStartMessage && mountedRef.current) {
+
+                if (
+                  !pollingRef.current.hasShownStartMessage &&
+                  mountedRef.current
+                ) {
                   toast({
                     title: "Analysis in Progress",
-                    description: "Your analysis has begun. Please stay on this page, you'll receive a notification here when it's ready.",
+                    description:
+                      "Your analysis has begun. Please stay on this page, you'll receive a notification here when it's ready.",
                     duration: 10000,
                   });
                   pollingRef.current.hasShownStartMessage = true;
                 }
               } else {
-                // No previous completed analysis, SHOW LOADER
                 setIsLoading(true);
-                
-                // Show "analysis in progress" toast only once
-                if (!pollingRef.current.hasShownStartMessage && mountedRef.current) {
+
+                if (
+                  !pollingRef.current.hasShownStartMessage &&
+                  mountedRef.current
+                ) {
                   toast({
                     title: "Analysis in Progress",
-                    description: "Your analysis has begun. Please stay on this page, you'll receive a notification here when it's ready.",
+                    description:
+                      "Your analysis has begun. Please stay on this page, you'll receive a notification here when it's ready.",
                     duration: 10000,
                   });
                   pollingRef.current.hasShownStartMessage = true;
                 }
               }
-              
-              // Continue polling every 30 seconds
+
               setError(null);
               if (pollingRef.current.productTimer) {
                 clearTimeout(pollingRef.current.productTimer);
@@ -293,53 +295,47 @@ export default function Results() {
                   pollProductAnalytics(productId);
                 }
               }, 30000);
-              
             } else if (currentStatus === "completed") {
-              // Current analysis is completed
-              
               setCurrentAnalytics(mostRecentAnalysis);
               setIsLoading(false);
               setError(null);
-              
-              // Check if this is a NEW completed analysis (date comparison)
-              const previousDate = previousAnalytics?.date || previousAnalytics?.updated_at || previousAnalytics?.created_at;
-              
+
+              const previousDate =
+                previousAnalytics?.date ||
+                previousAnalytics?.updated_at ||
+                previousAnalytics?.created_at;
+
               if (previousDate && currentDate && currentDate > previousDate) {
-                // New analysis completed - show success toast
                 toast({
                   title: "Analysis Updated",
-                  description: "Your updated analysis is now available on this page. Refresh if you don't see the latest insights.",
+                  description:
+                    "Your updated analysis is now available on this page. Refresh if you don't see the latest insights.",
                   duration: 10000,
                 });
               }
-              
-              // Update previous to current (only if completed)
+
               setPreviousAnalytics(mostRecentAnalysis);
-              
-              // IMPORTANT: Store the full analytics response in localStorage ONLY when completed
               localStorage.setItem("last_analysis_data", JSON.stringify(res));
-              
-              // Store the date for future comparisons
+
               if (currentDate) {
                 localStorage.setItem("last_analysis_date", currentDate);
               }
-              
-              // Stop polling since analysis is complete
+
               if (pollingRef.current.productTimer) {
                 clearTimeout(pollingRef.current.productTimer);
               }
-              
             } else {
-              // Unknown status - treat as in progress
               setCurrentAnalytics(mostRecentAnalysis);
-              
-              if (previousAnalytics && previousAnalytics.status?.toLowerCase() === "completed") {
+
+              if (
+                previousAnalytics &&
+                previousAnalytics.status?.toLowerCase() === "completed"
+              ) {
                 setIsLoading(false);
               } else {
                 setIsLoading(true);
               }
-              
-              // Continue polling
+
               if (pollingRef.current.productTimer) {
                 clearTimeout(pollingRef.current.productTimer);
               }
@@ -350,7 +346,6 @@ export default function Results() {
               }, 30000);
             }
           } else {
-            // No analysis data found, show loader and continue polling
             setIsLoading(true);
             if (pollingRef.current.productTimer) {
               clearTimeout(pollingRef.current.productTimer);
@@ -366,12 +361,10 @@ export default function Results() {
         }
       } catch (err) {
         console.error("Failed to fetch analytics:", err);
-        // Continue polling on error, don't show error messages
         if (pollingRef.current.productTimer) {
           clearTimeout(pollingRef.current.productTimer);
         }
 
-        // Retry after 30 seconds on error
         pollingRef.current.productTimer = window.setTimeout(() => {
           if (mountedRef.current) {
             pollProductAnalytics(productId);
@@ -382,7 +375,7 @@ export default function Results() {
     [accessToken, previousAnalytics, toast]
   );
 
-  // NEW: Load previous completed analysis from localStorage on mount
+  // Load previous completed analysis from localStorage on mount
   useEffect(() => {
     const lastAnalysisData = localStorage.getItem("last_analysis_data");
     if (lastAnalysisData) {
@@ -404,7 +397,6 @@ export default function Results() {
 
   useEffect(() => {
     if (resultsData?.product?.id) {
-      // Reset the start message flag for new analysis
       pollingRef.current.hasShownStartMessage = false;
       if (pollingRef.current.productTimer) {
         clearTimeout(pollingRef.current.productTimer);
@@ -413,24 +405,22 @@ export default function Results() {
     }
   }, [resultsData, pollProductAnalytics]);
 
-  // NEW: Determine what to display based on flow logic
-  // Show loader ONLY if no previous completed data exists AND current is not completed
   const shouldShowLoader = isLoading || !resultsData || !currentAnalytics;
-  
+
   // Determine which analytics to display
   const displayAnalytics = (() => {
     if (!currentAnalytics) return null;
-    
+
     const currentStatus = currentAnalytics.status?.toLowerCase() || "";
-    
-    // If current is error or in_progress AND we have previous completed data, show previous
-    if ((currentStatus === "error" || currentStatus === "in_progress") && 
-        previousAnalytics && 
-        previousAnalytics.status?.toLowerCase() === "completed") {
+
+    if (
+      (currentStatus === "error" || currentStatus === "in_progress") &&
+      previousAnalytics &&
+      previousAnalytics.status?.toLowerCase() === "completed"
+    ) {
       return previousAnalytics;
     }
-    
-    // Otherwise show current
+
     return currentAnalytics;
   })();
 
@@ -453,7 +443,6 @@ export default function Results() {
     );
   }
 
-  // NEW: Extract data from the analytics we're displaying (either current or previous)
   const data = displayAnalytics?.analytics;
 
   if (!data) {
@@ -507,24 +496,21 @@ export default function Results() {
   const contentImpact = data.sources_and_content_impact;
 
   if (contentImpact?.header && contentImpact?.rows) {
-    // Extract brand names from header (every 3rd column starting from index 1)
     const brandNames: string[] = [];
     for (let i = 1; i < contentImpact.header.length - 2; i += 3) {
       brandNames.push(contentImpact.header[i] as string);
     }
 
-    // Calculate totals for each brand (sum of mentions across all rows)
     brandNames.forEach((brand, index) => {
       let total = 0;
       contentImpact.rows.forEach((row) => {
-        const mentions = row[1 + index * 3 + 1] as number; // Mentions column for each brand
+        const mentions = row[1 + index * 3 + 1] as number;
         total += mentions;
       });
       brandMentionTotals[brand] = total;
     });
   }
 
-  // Find top brand and its total
   let topBrand = "";
   let topBrandTotal = 0;
   Object.entries(brandMentionTotals).forEach(([brand, total]) => {
@@ -534,7 +520,6 @@ export default function Results() {
     }
   });
 
-  // Get your brand's total (last brand in the list)
   const yourBrandTotal =
     Object.values(brandMentionTotals)[
       Object.values(brandMentionTotals).length - 1
@@ -553,30 +538,44 @@ export default function Results() {
         } as React.CSSProperties
       }
     >
-      <Sidebar side="left" collapsible="offcanvas">
+      <Sidebar side="left" collapsible="offcanvas" className="no-print">
         <SidebarContent>
           <ChatSidebar productId={resultsData.product.id} />
         </SidebarContent>
       </Sidebar>
 
       <SidebarInset>
-        <Layout sidebarTrigger={<SidebarTrigger className="h-8 w-8" />}>
+        <Layout
+          sidebarTrigger={<SidebarTrigger className="h-8 w-8 no-print" />}
+        >
           <div className="min-h-screen bg-background">
             <div className="container mx-auto px-4 py-8 space-y-8">
-              <BrandHeader
-                brandName={data.brand_name || ""}
-                brandWebsite={data.brand_website || ""}
-                keywordsAnalyzed={data.analysis_scope?.search_keywords || []}
-                status={data.status || ""}
-                date={
-                  displayAnalytics?.updated_at ||
-                  displayAnalytics?.created_at ||
-                  ""
-                }
-                modelName={data.model_name || ""}
-              />
-              {/* New Analysis Button */}
-              <div className="flex justify-center">
+              {/* GeoRankers Print Header - Shows only in print, once at top */}
+              <div className="hidden print:block print-only-header">
+                <h1 className="text-5xl font-bold font-bold gradient-text">GeoRankers</h1>
+                <p className="text-xl text-gray-600 mt-1">
+                  AI Visibility Analysis Report
+                </p>
+              </div>
+
+              {/* Brand Header Section */}
+              <div style={{ pageBreakInside: "avoid", breakInside: "avoid" }}>
+                <BrandHeader
+                  brandName={data.brand_name || ""}
+                  brandWebsite={data.brand_website || ""}
+                  keywordsAnalyzed={data.analysis_scope?.search_keywords || []}
+                  status={data.status || ""}
+                  date={
+                    displayAnalytics?.updated_at ||
+                    displayAnalytics?.created_at ||
+                    ""
+                  }
+                  modelName={data.model_name || ""}
+                />
+              </div>
+
+              {/* New Analysis Button - Hidden in print */}
+              <div className="flex justify-center no-print">
                 <Button
                   onClick={handleNewAnalysis}
                   variant="default"
@@ -587,98 +586,125 @@ export default function Results() {
                 </Button>
               </div>
 
-              <OverallInsights
-                insights={insights}
-                executiveSummary={
-                  data.executive_summary
-                    ? {
-                        brand_score_and_tier:
-                          data.executive_summary.brand_score_and_tier || "",
-                        strengths: data.executive_summary.strengths || [],
-                        weaknesses: data.executive_summary.weaknesses || [],
-                        competitor_positioning: {
-                          leaders:
-                            data.executive_summary.competitor_positioning
-                              ?.leaders || [],
-                          mid_tier:
-                            data.executive_summary.competitor_positioning
-                              ?.mid_tier || [],
-                          laggards:
-                            data.executive_summary.competitor_positioning
-                              ?.laggards || [],
-                        },
-                        prioritized_actions:
-                          data.executive_summary.prioritized_actions || [],
-                        conclusion: data.executive_summary.conclusion || "",
-                      }
-                    : undefined
-                }
-                yourBrandTotal={yourBrandTotal}
-                topBrand={topBrand}
-                topBrandTotal={topBrandTotal}
-              />
+              {/* Overall Insights Section */}
+              <div style={{ pageBreakInside: "avoid", breakInside: "avoid" }}>
+                <OverallInsights
+                  insights={insights}
+                  executiveSummary={
+                    data.executive_summary
+                      ? {
+                          brand_score_and_tier:
+                            data.executive_summary.brand_score_and_tier || "",
+                          strengths: data.executive_summary.strengths || [],
+                          weaknesses: data.executive_summary.weaknesses || [],
+                          competitor_positioning: {
+                            leaders:
+                              data.executive_summary.competitor_positioning
+                                ?.leaders || [],
+                            mid_tier:
+                              data.executive_summary.competitor_positioning
+                                ?.mid_tier || [],
+                            laggards:
+                              data.executive_summary.competitor_positioning
+                                ?.laggards || [],
+                          },
+                          prioritized_actions:
+                            data.executive_summary.prioritized_actions || [],
+                          conclusion: data.executive_summary.conclusion || "",
+                        }
+                      : undefined
+                  }
+                  yourBrandTotal={yourBrandTotal}
+                  topBrand={topBrand}
+                  topBrandTotal={topBrandTotal}
+                />
+              </div>
+
+              {/* Source Analysis Section */}
               {data.sources_and_content_impact &&
                 data.sources_and_content_impact.header &&
                 data.sources_and_content_impact.rows && (
-                  <SourceAnalysis
-                    contentImpact={{
-                      header: data.sources_and_content_impact.header,
-                      rows: data.sources_and_content_impact.rows,
-                      depth_notes: data.sources_and_content_impact.depth_notes,
-                    }}
-                    brandName={data.brand_name || ""}
-                  />
+                  <div
+                    style={{ pageBreakInside: "avoid", breakInside: "avoid" }}
+                  >
+                    <SourceAnalysis
+                      contentImpact={{
+                        header: data.sources_and_content_impact.header,
+                        rows: data.sources_and_content_impact.rows,
+                        depth_notes:
+                          data.sources_and_content_impact.depth_notes,
+                      }}
+                      brandName={data.brand_name || ""}
+                    />
+                  </div>
                 )}
+
+              {/* Competitor Analysis Section */}
               {(data.competitor_visibility_table?.header &&
                 data.competitor_visibility_table?.rows) ||
               (data.competitor_sentiment_table?.header &&
                 data.competitor_sentiment_table?.rows) ? (
-                <CompetitorAnalysis
-                  brandName={data.brand_name || ""}
-                  analysis={{
-                    competitor_visibility_table:
-                      data.competitor_visibility_table?.header &&
-                      data.competitor_visibility_table?.rows
-                        ? {
-                            header: data.competitor_visibility_table.header,
-                            rows: data.competitor_visibility_table.rows,
-                          }
-                        : undefined,
-                    competitor_sentiment_table:
-                      data.competitor_sentiment_table?.header &&
-                      data.competitor_sentiment_table?.rows
-                        ? {
-                            header: data.competitor_sentiment_table.header,
-                            rows: data.competitor_sentiment_table.rows,
-                          }
-                        : undefined,
-                  }}
-                />
+                <div style={{ pageBreakInside: "avoid", breakInside: "avoid" }}>
+                  <CompetitorAnalysis
+                    brandName={data.brand_name || ""}
+                    analysis={{
+                      competitor_visibility_table:
+                        data.competitor_visibility_table?.header &&
+                        data.competitor_visibility_table?.rows
+                          ? {
+                              header: data.competitor_visibility_table.header,
+                              rows: data.competitor_visibility_table.rows,
+                            }
+                          : undefined,
+                      competitor_sentiment_table:
+                        data.competitor_sentiment_table?.header &&
+                        data.competitor_sentiment_table?.rows
+                          ? {
+                              header: data.competitor_sentiment_table.header,
+                              rows: data.competitor_sentiment_table.rows,
+                            }
+                          : undefined,
+                    }}
+                  />
+                </div>
               ) : null}
+
+              {/* Content Impact Section */}
               {data.sources_and_content_impact &&
                 data.sources_and_content_impact.header &&
                 data.sources_and_content_impact.rows &&
                 data.sources_and_content_impact.rows.length > 0 && (
-                  <ContentImpact
-                    brandName={data.brand_name || ""}
-                    contentImpact={{
-                      header: data.sources_and_content_impact.header,
-                      rows: data.sources_and_content_impact.rows,
-                      depth_notes: data.sources_and_content_impact.depth_notes,
-                    }}
-                  />
+                  <div
+                    style={{ pageBreakInside: "avoid", breakInside: "avoid" }}
+                  >
+                    <ContentImpact
+                      brandName={data.brand_name || ""}
+                      contentImpact={{
+                        header: data.sources_and_content_impact.header,
+                        rows: data.sources_and_content_impact.rows,
+                        depth_notes:
+                          data.sources_and_content_impact.depth_notes,
+                      }}
+                    />
+                  </div>
                 )}
+
+              {/* Recommendations Section */}
               {data.recommendations && data.recommendations.length > 0 && (
-                <Recommendations
-                  recommendations={data.recommendations.map((rec) => ({
-                    overall_insight: rec.overall_insight || "",
-                    suggested_action: rec.suggested_action || "",
-                    overall_effort: rec.overall_effort || "",
-                    impact: rec.impact || "",
-                  }))}
-                />
+                <div style={{ pageBreakInside: "avoid", breakInside: "avoid" }}>
+                  <Recommendations
+                    recommendations={data.recommendations.map((rec) => ({
+                      overall_insight: rec.overall_insight || "",
+                      suggested_action: rec.suggested_action || "",
+                      overall_effort: rec.overall_effort || "",
+                      impact: rec.impact || "",
+                    }))}
+                  />
+                </div>
               )}
-              <div className="flex justify-center pt-8">
+
+              {/* Print button - Hidden in print */}
+              <div className="flex justify-center pt-8 no-print">
                 <Button onClick={handlePrint} size="lg" className="gap-2">
                   <Printer className="h-5 w-5" /> Download Report
                 </Button>

@@ -76,7 +76,6 @@ export const SourceAnalysis = ({
     const sourceName = row[0] as string;
     const mentions = Number(row[brandColumnIndex + 1] || 0);
 
-    // Find max mentions in this row across all brands
     const brandNames: string[] = [];
     for (let i = 1; i < contentImpact.header.length - 2; i += 3) {
       brandNames.push(contentImpact.header[i] as string);
@@ -91,7 +90,6 @@ export const SourceAnalysis = ({
     const tier = getMentionTier(mentionRatio);
     const depthNote = contentImpact.depth_notes?.[brandName]?.[sourceName];
 
-    // Split names by space, slash, or backslash
     const shortCategory = sourceName.split(/[\s\\/]+/).join("\n");
 
     return {
@@ -148,125 +146,129 @@ export const SourceAnalysis = ({
           </Tooltip>
         </div>
 
-        {/* Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">
-              Citation Distribution by Source Category
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={350}>
-              <BarChart data={chartData} margin={{ bottom: 60, top: 20 }}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="hsl(var(--border))"
-                />
-                <XAxis
-                  dataKey="category"
-                  stroke="hsl(var(--muted-foreground))"
-                  fontSize={11}
-                  interval={0}
-                  tick={({ x, y, payload }) => (
-                    <g transform={`translate(${x},${y + 5})`}>
-                      {payload.value.split("\n").map((line, index) => (
-                        <text
-                          key={index}
-                          x={0}
-                          y={index * 11}
-                          textAnchor="middle"
-                          fontSize={10}
-                          fill="hsl(var(--foreground))"
-                          fontWeight="500"
-                        >
-                          {line}
-                        </text>
-                      ))}
-                    </g>
-                  )}
-                />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                <ChartTooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "6px",
-                  }}
-                />
-                <Bar dataKey="citations" radius={[4, 4, 0, 0]}>
-                  {chartData.map((entry, index) => (
-                    <Cell key={index} fill={getBarColor(entry.visibility)} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        {/* Chart - Wrapped to prevent breaks */}
+        <div style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">
+                Citation Distribution by Source Category
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={350}>
+                <BarChart data={chartData} margin={{ bottom: 60, top: 20 }}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="hsl(var(--border))"
+                  />
+                  <XAxis
+                    dataKey="category"
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={11}
+                    interval={0}
+                    tick={({ x, y, payload }) => (
+                      <g transform={`translate(${x},${y + 5})`}>
+                        {payload.value.split("\n").map((line, index) => (
+                          <text
+                            key={index}
+                            x={0}
+                            y={index * 11}
+                            textAnchor="middle"
+                            fontSize={10}
+                            fill="hsl(var(--foreground))"
+                            fontWeight="500"
+                          >
+                            {line}
+                          </text>
+                        ))}
+                      </g>
+                    )}
+                  />
+                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                  <ChartTooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "6px",
+                    }}
+                  />
+                  <Bar dataKey="citations" radius={[4, 4, 0, 0]}>
+                    {chartData.map((entry, index) => (
+                      <Cell key={index} fill={getBarColor(entry.visibility)} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
 
-        {/* Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">
-              Source Details for{" "}
-              <span className="font-bold text-primary">{brandName}</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="w-full">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="font-semibold">Source</TableHead>
-                    <TableHead className="text-center font-semibold">Mentions</TableHead>
-                    <TableHead className="text-center font-semibold">Tier</TableHead>
-                    <TableHead className="font-semibold">Insights</TableHead>
-                    <TableHead className="font-semibold">Pages Used</TableHead>
-                  </TableRow>
-                </TableHeader>
-              <TableBody>
-                {sources.map((source, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="font-medium break-words whitespace-pre-line">
-                      {source.shortCategory}
-                    </TableCell>
-                    <TableCell className="text-center font-semibold">
-                      {source.mentions}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge
-                        className={getVisibilityColor(source.score)}
-                        variant="secondary"
-                      >
-                        {source.score}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {source.insight || "No insights available"}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {Array.isArray(source.pages_used) && source.pages_used.length > 0 &&
-                      !source.pages_used.includes("Absent") ? (
-                        <ul className="space-y-1 pl-0">
-                          {source.pages_used.map((page, idx) => (
-                            <li key={idx} className="flex items-start gap-2">
-                              <span className="text-primary mt-1">•</span>
-                              <span className="flex-1">{page}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : Array.isArray(source.pages_used) && source.pages_used.includes("Absent") ? (
-                        "No pages found"
-                      ) : (
-                        "No pages found"
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Table - Wrapped to prevent breaks */}
+        <div style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">
+                Source Details for{" "}
+                <span className="font-bold text-primary">{brandName}</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="w-full">
+                <Table className="table-fixed w-full">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="font-semibold w-1/5">Source</TableHead>
+                      <TableHead className="text-center font-semibold w-1/10">Mentions</TableHead>
+                      <TableHead className="text-center font-semibold w-1/10">Tier</TableHead>
+                      <TableHead className="font-semibold w-1/3">Insights</TableHead>
+                      <TableHead className="font-semibold w-1/5">Pages Used</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sources.map((source, index) => (
+                      <TableRow key={index} style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                        <TableCell className="font-medium break-words whitespace-normal w-1/5">
+                          {source.shortCategory}
+                        </TableCell>
+                        <TableCell className="text-center font-semibold break-words whitespace-pre-line w-1/10">
+                          {source.mentions}
+                        </TableCell>
+                        <TableCell className="text-center break-words whitespace-pre-line w-1/10">
+                          <Badge
+                            className={getVisibilityColor(source.score)}
+                            variant="secondary"
+                          >
+                            {source.score}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground break-words whitespace-pre-line w-1/3">
+                          {source.insight || "No insights available"}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground break-words whitespace-pre-line w-1/5">
+                          {Array.isArray(source.pages_used) && source.pages_used.length > 0 &&
+                          !source.pages_used.includes("Absent") ? (
+                            <ul className="space-y-1 pl-0">
+                              {source.pages_used.map((page, idx) => (
+                                <li key={idx} className="flex items-start gap-2">
+                                  <span className="text-primary mt-1">•</span>
+                                  <span className="flex-1">{page}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : Array.isArray(source.pages_used) && source.pages_used.includes("Absent") ? (
+                            "~ No pages found"
+                          ) : (
+                            "~ No pages found"
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </TooltipProvider>
   );
