@@ -32,6 +32,8 @@ interface InputStateAny {
   search_keywords?: Array<{ id?: string; keyword: string }>;
   keywords?: string[];
   analytics?: any;
+  analysisTriggeredAt?: number; // Timestamp when new analysis was triggered
+  isNewAnalysisTriggered?: boolean;
 }
 
 // Updated interface for the API response structure
@@ -139,14 +141,44 @@ export default function Results() {
 
   const { user, products } = useAuth();
   const { toast } = useToast();
-  const accessToken = localStorage.getItem("access_token") || "";
   const navigate = useNavigate();
   const location = useLocation();
-  const pollingRef = useRef<{
-    productTimer?: number;
-    hasShownStartMessage?: boolean;
-  }>({});
+
+  // ✅ POLLING CONFIGURATION (tweakable)
+  const POLL_INITIAL_DELAY_MS = 2 * 60 * 1000; // 5 minutes after first poll
+  const POLL_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes between batch polls
+  const POLL_MAX_ATTEMPTS = 5; // 5 polls per batch
+  const POLL_COOLDOWN_MS = 10 * 60 * 1000; // 10 minute cooldown
+
+  // ✅ CRITICAL: Use refs to avoid dependency hell
+  const pollingTimerRef = useRef<number | undefined>();
+  const hasShownStartMessageRef = useRef(false);
+  const previousAnalyticsRef = useRef<AnalyticsData | null>(null);
+  const isPollingRef = useRef(false);
   const mountedRef = useRef(true);
+  const currentProductIdRef = useRef<string | null>(null);
+  const pollingAttemptsRef = useRef(0);
+  const cooldownTimerRef = useRef<number | undefined>();
+  const isInCooldownRef = useRef(false);
+  const hasReceivedDataRef = useRef(false);
+  const accessTokenRef = useRef<string>("");
+  const initialPollDoneRef = useRef(false); // Track if first poll done
+  const toastRef = useRef(toast); // Stable toast reference
+  const analysisTriggeredAtRef = useRef<number | null>(null); // Timestamp when new analysis was triggered
+  
+  // Keep toast ref updated
+  useEffect(() => {
+    toastRef.current = toast;
+  }, [toast]);
+
+  // Sync refs (doesn't trigger re-renders)
+  useEffect(() => {
+    previousAnalyticsRef.current = previousAnalytics;
+  }, [previousAnalytics]);
+
+  useEffect(() => {
+    accessTokenRef.current = localStorage.getItem("access_token") || "";
+  }, []);
 
   const handleNewAnalysis = () => {
     const currentWebsite =
@@ -162,6 +194,333 @@ export default function Results() {
       },
     });
   };
+
+  // ✅ STABLE POLLING FUNCTION - No dependencies, everything via refs
+  const pollProductAnalytics = useCallback(
+    async (productId: string, isInitialPoll: boolean = false) => {
+      const attemptNum = pollingAttemptsRef.current + 1;
+      console.log(
+        `🔄 [POLL] Starting poll #${attemptNum} for product:`,
+        productId,
+        isInitialPoll ? "(INITIAL)" : "(BATCH)"
+      );
+
+      // ✅ CRITICAL: Early exit checks BEFORE acquiring lock
+      if (!mountedRef.current) {
+        console.log("⏸️ [POLL] Component unmounted - aborting");
+        return;
+      }
+
+      if (isInCooldownRef.current) {
+        console.log("❄️ [POLL] In cooldown period - skipping poll");
+        return;
+      }
+
+      if (hasReceivedDataRef.current) {
+        console.log(
+          "✅ [POLL] Already received completed/failed data - stopping all polling"
+        );
+        return;
+      }
+
+      if (isPollingRef.current) {
+        console.log("⏸️ [POLL] Already polling - skipping");
+        return;
+      }
+
+      if (!productId || !accessTokenRef.current) {
+        console.log("⏸️ [POLL] Missing productId or accessToken");
+        return;
+      }
+
+      // ✅ Check retry limit BEFORE incrementing (only for batch polls, not initial)
+      if (!isInitialPoll && pollingAttemptsRef.current >= POLL_MAX_ATTEMPTS) {
+        console.log(
+          `🛑 [POLL] Reached max batch limit (${POLL_MAX_ATTEMPTS}) - entering ${POLL_COOLDOWN_MS / 60000} min cooldown`
+        );
+        isInCooldownRef.current = true;
+
+        toastRef.current({
+          title: "Analysis Taking Longer Than Expected",
+          description: `We'll pause checking for ${POLL_COOLDOWN_MS / 60000} minutes. The analysis will continue in the background.`,
+          duration: 5000,
+        });
+
+        // Clear existing timer
+        if (pollingTimerRef.current) {
+          clearTimeout(pollingTimerRef.current);
+          pollingTimerRef.current = undefined;
+        }
+
+        // Enter cooldown, then reset and start new batch
+        cooldownTimerRef.current = window.setTimeout(() => {
+          if (
+            mountedRef.current &&
+            !hasReceivedDataRef.current &&
+            currentProductIdRef.current === productId
+          ) {
+            console.log(
+              "🔄 [POLL] Cooldown complete - resetting counter and starting new batch"
+            );
+            pollingAttemptsRef.current = 0;
+            isInCooldownRef.current = false;
+            pollProductAnalytics(productId, false);
+          }
+        }, POLL_COOLDOWN_MS);
+
+        return;
+      }
+
+      // ✅ Acquire lock AFTER all checks
+      isPollingRef.current = true;
+      if (!isInitialPoll) {
+        pollingAttemptsRef.current += 1;
+      }
+      console.log(
+        `✅ [POLL] Lock acquired, attempt ${pollingAttemptsRef.current}/${POLL_MAX_ATTEMPTS}`
+      );
+
+      try {
+        const res = await getProductAnalytics(
+          productId,
+          accessTokenRef.current
+        );
+        console.log("📊 [POLL] Analytics response received:", res);
+
+        // ✅ Check mounted state after async operation
+        if (!mountedRef.current) {
+          console.log("⏸️ [POLL] Component unmounted during fetch - aborting");
+          return;
+        }
+
+        // ✅ Double-check we haven't received data yet
+        if (hasReceivedDataRef.current) {
+          console.log("✅ [POLL] Data received while fetching - aborting");
+          return;
+        }
+
+        if (res && res.analytics && Array.isArray(res.analytics)) {
+          setAnalyticsResponse(res);
+
+          const mostRecentAnalysis = res.analytics[0];
+
+          if (mostRecentAnalysis) {
+            const currentStatus =
+              mostRecentAnalysis.status?.toLowerCase() || "";
+            const currentDate =
+              mostRecentAnalysis.date ||
+              mostRecentAnalysis.updated_at ||
+              mostRecentAnalysis.created_at;
+
+            // Save to localStorage (outside state updates to avoid re-renders)
+            if (res.product_id) {
+              localStorage.setItem("product_id", res.product_id);
+            }
+            if (mostRecentAnalysis.analytics?.analysis_scope?.search_keywords) {
+              const keywords =
+                mostRecentAnalysis.analytics.analysis_scope.search_keywords;
+              localStorage.setItem(
+                "keywords",
+                JSON.stringify(keywords.map((k) => ({ keyword: k })))
+              );
+              localStorage.setItem("keyword_count", keywords.length.toString());
+            }
+
+            const prevAnalytics = previousAnalyticsRef.current;
+            const isPreviousCompleted =
+              prevAnalytics?.status?.toLowerCase() === "completed";
+
+            // ✅ Check if this analysis is newer than when we triggered a new analysis
+            const analysisTimestamp = currentDate ? new Date(currentDate).getTime() : 0;
+            const isNewAnalysis = !analysisTriggeredAtRef.current || analysisTimestamp > analysisTriggeredAtRef.current;
+            
+            console.log(`📅 [POLL] Analysis date: ${currentDate}, Trigger time: ${analysisTriggeredAtRef.current ? new Date(analysisTriggeredAtRef.current).toISOString() : 'none'}, isNew: ${isNewAnalysis}`);
+
+            // ✅ COMPLETED or FAILED = STOP ONLY IF it's a NEW analysis (not old data)
+            if ((currentStatus === "completed" || currentStatus === "failed") && isNewAnalysis) {
+              hasReceivedDataRef.current = true;
+              pollingAttemptsRef.current = 0;
+              initialPollDoneRef.current = true;
+              analysisTriggeredAtRef.current = null; // Clear trigger timestamp
+
+              // Clear all timers immediately
+              if (pollingTimerRef.current) {
+                clearTimeout(pollingTimerRef.current);
+                pollingTimerRef.current = undefined;
+              }
+              if (cooldownTimerRef.current) {
+                clearTimeout(cooldownTimerRef.current);
+                cooldownTimerRef.current = undefined;
+              }
+
+              setCurrentAnalytics(mostRecentAnalysis);
+              setIsLoading(false);
+              setError(null);
+
+              const previousDate =
+                prevAnalytics?.date ||
+                prevAnalytics?.updated_at ||
+                prevAnalytics?.created_at;
+
+              // Show toast only for newly completed analysis
+              if (currentStatus === "completed" && previousDate && currentDate && currentDate > previousDate) {
+                toastRef.current({
+                  title: "Analysis Completed",
+                  description:
+                    "Your analysis is now complete and available on this page.",
+                  duration: 10000,
+                });
+                console.log(
+                  "🎉 [POLL] Showing completion notification for new completed analysis"
+                );
+              }
+
+              if (currentStatus === "completed") {
+                setPreviousAnalytics(mostRecentAnalysis);
+                localStorage.setItem("last_analysis_data", JSON.stringify(res));
+                if (currentDate) {
+                  localStorage.setItem("last_analysis_date", currentDate);
+                }
+              }
+
+              console.log(
+                `✅ [POLL] Analysis ${currentStatus.toUpperCase()} - ALL polling stopped permanently`
+              );
+              return;
+            }
+            
+            // ✅ OLD completed data found but waiting for NEW analysis - continue polling
+            if ((currentStatus === "completed" || currentStatus === "failed") && !isNewAnalysis) {
+              console.log(`⏳ [POLL] Found OLD ${currentStatus} analysis - waiting for NEW analysis, continuing poll`);
+              setCurrentAnalytics(mostRecentAnalysis);
+              setIsLoading(true); // Show loading since we're waiting for new data
+              
+              if (!hasShownStartMessageRef.current && mountedRef.current) {
+                toastRef.current({
+                  title: "Analysis in Progress",
+                  description:
+                    "Your new analysis has begun. Please stay on this page, you'll receive a notification when it's ready.",
+                  duration: 10000,
+                });
+                hasShownStartMessageRef.current = true;
+              }
+              
+              scheduleNextPoll(productId, isInitialPoll);
+              return;
+            }
+
+            // ✅ IN_PROGRESS or ERROR - continue polling
+            if (currentStatus === "error" || currentStatus === "in_progress") {
+              setCurrentAnalytics(mostRecentAnalysis);
+
+              // Show previous completed results while new analysis runs
+              if (isPreviousCompleted) {
+                setIsLoading(false);
+              } else {
+                setIsLoading(true);
+              }
+
+              if (!hasShownStartMessageRef.current && mountedRef.current) {
+                toastRef.current({
+                  title: "Analysis in Progress",
+                  description:
+                    "Your analysis has begun. Please stay on this page, you'll receive a notification here when it's ready.",
+                  duration: 10000,
+                });
+                hasShownStartMessageRef.current = true;
+              }
+
+              setError(null);
+
+              // Schedule next poll based on whether this is initial or batch
+              scheduleNextPoll(productId, isInitialPoll);
+              return;
+            }
+
+            // ✅ Unknown status - continue polling
+            setCurrentAnalytics(mostRecentAnalysis);
+            if (isPreviousCompleted) {
+              setIsLoading(false);
+            } else {
+              setIsLoading(true);
+            }
+            
+            console.log(`⚠️ [POLL] Unknown status "${currentStatus}" - continuing polling`);
+            scheduleNextPoll(productId, isInitialPoll);
+          } else {
+            // No analysis found - keep polling
+            console.log("⚠️ [POLL] No analysis found - scheduling next poll");
+            setIsLoading(true);
+            scheduleNextPoll(productId, isInitialPoll);
+          }
+        } else {
+          throw new Error("Invalid response format");
+        }
+      } catch (err) {
+        console.error(
+          `❌ [POLL] Failed to fetch analytics (attempt ${pollingAttemptsRef.current}/${POLL_MAX_ATTEMPTS}):`,
+          err
+        );
+
+        // Don't retry if we already have completed data
+        if (hasReceivedDataRef.current) {
+          console.log(
+            "✅ [POLL] Already have completed data - not retrying after error"
+          );
+          return;
+        }
+
+        // Schedule retry
+        scheduleNextPoll(productId, isInitialPoll);
+      } finally {
+        isPollingRef.current = false;
+        console.log("🔓 [POLL] Lock released");
+      }
+    },
+    [] // ✅ EMPTY ARRAY - Everything accessed through refs
+  );
+
+  // ✅ Helper to schedule next poll with correct timing
+  const scheduleNextPoll = useCallback((productId: string, wasInitialPoll: boolean) => {
+    if (pollingTimerRef.current) {
+      clearTimeout(pollingTimerRef.current);
+    }
+
+    if (hasReceivedDataRef.current) {
+      console.log("✅ [SCHEDULE] Data already received - no more polls");
+      return;
+    }
+
+    // After initial poll, wait 5 minutes before starting batch
+    if (wasInitialPoll && !initialPollDoneRef.current) {
+      initialPollDoneRef.current = true;
+      console.log(`⏱️ [SCHEDULE] Initial poll done - waiting ${POLL_INITIAL_DELAY_MS / 60000} minutes before batch`);
+      pollingTimerRef.current = window.setTimeout(() => {
+        if (
+          mountedRef.current &&
+          currentProductIdRef.current === productId &&
+          !hasReceivedDataRef.current
+        ) {
+          isPollingRef.current = false;
+          pollingAttemptsRef.current = 0;
+          pollProductAnalytics(productId, false);
+        }
+      }, POLL_INITIAL_DELAY_MS);
+    } else {
+      // Batch poll - use 2 minute interval
+      console.log(`⏱️ [SCHEDULE] Scheduling batch poll in ${POLL_INTERVAL_MS / 60000} minutes...`);
+      pollingTimerRef.current = window.setTimeout(() => {
+        if (
+          mountedRef.current &&
+          currentProductIdRef.current === productId &&
+          !hasReceivedDataRef.current
+        ) {
+          isPollingRef.current = false;
+          pollProductAnalytics(productId, false);
+        }
+      }, POLL_INTERVAL_MS);
+    }
+  }, [pollProductAnalytics]);
 
   // Parse and normalize location.state
   useEffect(() => {
@@ -193,6 +552,12 @@ export default function Results() {
           : (state.keywords || []).map((k: string) => ({ keyword: k })),
       };
       setResultsData(normalized);
+      
+      // ✅ Store analysisTriggeredAt if coming from InputPage with new analysis
+      if ((state as any).analysisTriggeredAt) {
+        analysisTriggeredAtRef.current = (state as any).analysisTriggeredAt;
+        console.log("📅 [STATE] New analysis triggered at:", new Date(analysisTriggeredAtRef.current!).toISOString());
+      }
     } else {
       navigate("/input");
     }
@@ -202,180 +567,7 @@ export default function Results() {
     };
   }, [location.state, navigate]);
 
-  // Cleanup timers on unmount
-  useEffect(() => {
-    return () => {
-      mountedRef.current = false;
-      if (pollingRef.current.productTimer) {
-        clearTimeout(pollingRef.current.productTimer);
-      }
-    };
-  }, []);
-
-  // Poll product analytics function
-  const pollProductAnalytics = useCallback(
-    async (productId: string) => {
-      if (!productId || !accessToken || !mountedRef.current) return;
-
-      try {
-        const res = await getProductAnalytics(productId, accessToken);
-
-        if (!mountedRef.current) return;
-
-        if (res && res.analytics && Array.isArray(res.analytics)) {
-          setAnalyticsResponse(res);
-
-          const mostRecentAnalysis = res.analytics[0];
-
-          if (mostRecentAnalysis) {
-            const currentStatus =
-              mostRecentAnalysis.status?.toLowerCase() || "";
-            const currentDate =
-              mostRecentAnalysis.date ||
-              mostRecentAnalysis.updated_at ||
-              mostRecentAnalysis.created_at;
-
-            if (res.product_id) {
-              localStorage.setItem("product_id", res.product_id);
-            }
-            if (mostRecentAnalysis.analytics?.analysis_scope?.search_keywords) {
-              const keywords =
-                mostRecentAnalysis.analytics.analysis_scope.search_keywords;
-              localStorage.setItem(
-                "keywords",
-                JSON.stringify(keywords.map((k) => ({ keyword: k })))
-              );
-              localStorage.setItem("keyword_count", keywords.length.toString());
-            }
-
-            if (currentStatus === "error" || currentStatus === "in_progress") {
-              setCurrentAnalytics(mostRecentAnalysis);
-
-              if (
-                previousAnalytics &&
-                previousAnalytics.status?.toLowerCase() === "completed"
-              ) {
-                setIsLoading(false);
-
-                if (
-                  !pollingRef.current.hasShownStartMessage &&
-                  mountedRef.current
-                ) {
-                  toast({
-                    title: "Analysis in Progress",
-                    description:
-                      "Your analysis has begun. Please stay on this page, you'll receive a notification here when it's ready.",
-                    duration: 10000,
-                  });
-                  pollingRef.current.hasShownStartMessage = true;
-                }
-              } else {
-                setIsLoading(true);
-
-                if (
-                  !pollingRef.current.hasShownStartMessage &&
-                  mountedRef.current
-                ) {
-                  toast({
-                    title: "Analysis in Progress",
-                    description:
-                      "Your analysis has begun. Please stay on this page, you'll receive a notification here when it's ready.",
-                    duration: 10000,
-                  });
-                  pollingRef.current.hasShownStartMessage = true;
-                }
-              }
-
-              setError(null);
-              if (pollingRef.current.productTimer) {
-                clearTimeout(pollingRef.current.productTimer);
-              }
-              pollingRef.current.productTimer = window.setTimeout(() => {
-                if (mountedRef.current) {
-                  pollProductAnalytics(productId);
-                }
-              }, 30000);
-            } else if (currentStatus === "completed") {
-              setCurrentAnalytics(mostRecentAnalysis);
-              setIsLoading(false);
-              setError(null);
-
-              const previousDate =
-                previousAnalytics?.date ||
-                previousAnalytics?.updated_at ||
-                previousAnalytics?.created_at;
-
-              if (previousDate && currentDate && currentDate > previousDate) {
-                toast({
-                  title: "Analysis Updated",
-                  description:
-                    "Your updated analysis is now available on this page. Refresh if you don't see the latest insights.",
-                  duration: 10000,
-                });
-              }
-
-              setPreviousAnalytics(mostRecentAnalysis);
-              localStorage.setItem("last_analysis_data", JSON.stringify(res));
-
-              if (currentDate) {
-                localStorage.setItem("last_analysis_date", currentDate);
-              }
-
-              if (pollingRef.current.productTimer) {
-                clearTimeout(pollingRef.current.productTimer);
-              }
-            } else {
-              setCurrentAnalytics(mostRecentAnalysis);
-
-              if (
-                previousAnalytics &&
-                previousAnalytics.status?.toLowerCase() === "completed"
-              ) {
-                setIsLoading(false);
-              } else {
-                setIsLoading(true);
-              }
-
-              if (pollingRef.current.productTimer) {
-                clearTimeout(pollingRef.current.productTimer);
-              }
-              pollingRef.current.productTimer = window.setTimeout(() => {
-                if (mountedRef.current) {
-                  pollProductAnalytics(productId);
-                }
-              }, 30000);
-            }
-          } else {
-            setIsLoading(true);
-            if (pollingRef.current.productTimer) {
-              clearTimeout(pollingRef.current.productTimer);
-            }
-            pollingRef.current.productTimer = window.setTimeout(() => {
-              if (mountedRef.current) {
-                pollProductAnalytics(productId);
-              }
-            }, 30000);
-          }
-        } else {
-          throw new Error("Invalid response format");
-        }
-      } catch (err) {
-        console.error("Failed to fetch analytics:", err);
-        if (pollingRef.current.productTimer) {
-          clearTimeout(pollingRef.current.productTimer);
-        }
-
-        pollingRef.current.productTimer = window.setTimeout(() => {
-          if (mountedRef.current) {
-            pollProductAnalytics(productId);
-          }
-        }, 30000);
-      }
-    },
-    [accessToken, previousAnalytics, toast]
-  );
-
-  // Load previous completed analysis from localStorage on mount
+  // ✅ Load previous completed analysis from localStorage ONCE on mount
   useEffect(() => {
     const lastAnalysisData = localStorage.getItem("last_analysis_data");
     if (lastAnalysisData) {
@@ -393,35 +585,127 @@ export default function Results() {
         console.error("Failed to parse last analysis data:", e);
       }
     }
+  }, []); // ✅ Empty dependency array - runs ONCE
+
+  // ✅ CRITICAL: Start polling only when productId changes (NOT on every render)
+  useEffect(() => {
+    const productId = resultsData?.product?.id;
+
+    if (!productId) {
+      console.log("⏸️ [EFFECT] No productId - skipping polling");
+      return;
+    }
+
+    // Only start new polling if productId actually changed
+    if (currentProductIdRef.current === productId) {
+      console.log("⏸️ [EFFECT] ProductId unchanged - skipping polling restart");
+      return;
+    }
+
+    console.log("🆕 [EFFECT] New productId detected:", productId);
+
+    // Update current product ID
+    currentProductIdRef.current = productId;
+
+    // ✅ RESET all polling state for new product
+    hasShownStartMessageRef.current = false;
+    isPollingRef.current = false;
+    pollingAttemptsRef.current = 0;
+    isInCooldownRef.current = false;
+    hasReceivedDataRef.current = false;
+    initialPollDoneRef.current = false; // Reset initial poll flag
+
+    // Clear any existing timers
+    if (pollingTimerRef.current) {
+      console.log("🧹 [EFFECT] Clearing existing polling timer");
+      clearTimeout(pollingTimerRef.current);
+      pollingTimerRef.current = undefined;
+    }
+    if (cooldownTimerRef.current) {
+      console.log("🧹 [EFFECT] Clearing existing cooldown timer");
+      clearTimeout(cooldownTimerRef.current);
+      cooldownTimerRef.current = undefined;
+    }
+
+    // Start polling with initial poll flag
+    console.log("▶️ [EFFECT] Starting INITIAL poll for product:", productId);
+    pollProductAnalytics(productId, true);
+
+    // Cleanup on unmount or productId change
+    return () => {
+      console.log("🧹 [EFFECT] Cleanup - Stopping all polling and timers");
+      if (pollingTimerRef.current) {
+        clearTimeout(pollingTimerRef.current);
+        pollingTimerRef.current = undefined;
+      }
+      if (cooldownTimerRef.current) {
+        clearTimeout(cooldownTimerRef.current);
+        cooldownTimerRef.current = undefined;
+      }
+      isPollingRef.current = false;
+      pollingAttemptsRef.current = 0;
+      isInCooldownRef.current = false;
+      initialPollDoneRef.current = false;
+    };
+  }, [resultsData?.product?.id, pollProductAnalytics]); // ✅ Now safe - pollProductAnalytics is stable
+
+  // ✅ Cleanup timers on unmount
+  useEffect(() => {
+    mountedRef.current = true;
+    console.log("🎬 [MOUNT] Component mounted");
+
+    return () => {
+      console.log("🛑 [UNMOUNT] Component unmounting - cleaning up");
+      mountedRef.current = false;
+      currentProductIdRef.current = null;
+      analysisTriggeredAtRef.current = null;
+      if (pollingTimerRef.current) {
+        clearTimeout(pollingTimerRef.current);
+      }
+      if (cooldownTimerRef.current) {
+        clearTimeout(cooldownTimerRef.current);
+      }
+      isPollingRef.current = false;
+      pollingAttemptsRef.current = 0;
+      isInCooldownRef.current = false;
+      hasReceivedDataRef.current = false;
+      initialPollDoneRef.current = false;
+    };
   }, []);
 
-  useEffect(() => {
-    if (resultsData?.product?.id) {
-      pollingRef.current.hasShownStartMessage = false;
-      if (pollingRef.current.productTimer) {
-        clearTimeout(pollingRef.current.productTimer);
-      }
-      pollProductAnalytics(resultsData.product.id);
-    }
-  }, [resultsData, pollProductAnalytics]);
-
-  const shouldShowLoader = isLoading || !resultsData || !currentAnalytics;
+  // Show loader only when no displayable data exists
+  const shouldShowLoader = isLoading && !previousAnalytics && !currentAnalytics;
 
   // Determine which analytics to display
   const displayAnalytics = (() => {
-    if (!currentAnalytics) return null;
-
-    const currentStatus = currentAnalytics.status?.toLowerCase() || "";
-
-    if (
-      (currentStatus === "error" || currentStatus === "in_progress") &&
-      previousAnalytics &&
-      previousAnalytics.status?.toLowerCase() === "completed"
-    ) {
+    // If currentAnalytics is completed, show it
+    if (currentAnalytics) {
+      const currentStatus = currentAnalytics.status?.toLowerCase() || "";
+      
+      // Show completed analysis directly
+      if (currentStatus === "completed") {
+        return currentAnalytics;
+      }
+      
+      // For in_progress/error/failed, show previous completed if available
+      if (
+        (currentStatus === "error" || currentStatus === "in_progress" || currentStatus === "failed") &&
+        previousAnalytics &&
+        previousAnalytics.status?.toLowerCase() === "completed"
+      ) {
+        return previousAnalytics;
+      }
+      
+      // Otherwise show current even if not ideal
+      return currentAnalytics;
+    }
+    
+    // Fallback to previous if no current
+    if (previousAnalytics) {
       return previousAnalytics;
     }
-
-    return currentAnalytics;
+    
+    return null;
   })();
 
   if (shouldShowLoader && !displayAnalytics) {
@@ -552,7 +836,9 @@ export default function Results() {
             <div className="container mx-auto px-4 py-8 space-y-8">
               {/* GeoRankers Print Header - Shows only in print, once at top */}
               <div className="hidden print:block print-only-header">
-                <h1 className="text-5xl font-bold font-bold gradient-text">GeoRankers</h1>
+                <h1 className="text-5xl font-bold font-bold gradient-text">
+                  GeoRankers
+                </h1>
                 <p className="text-xl text-gray-600 mt-1">
                   AI Visibility Analysis Report
                 </p>
