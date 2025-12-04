@@ -3,20 +3,24 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
-import { 
-  Paperclip, 
-  Globe, 
-  Lightbulb, 
-  MoreHorizontal, 
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  Paperclip,
+  Globe,
+  Lightbulb,
+  MoreHorizontal,
   Send,
   MessageSquare,
   Copy,
-  Check
+  Check,
+  Search,
+  Sparkles,
+  X
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { 
-  getChatHistory, 
-  sendChatMessage, 
+import {
+  getChatHistory,
+  sendChatMessage,
   ChatMessage,
   ChatbotResponse
 } from '@/apiHelpers';
@@ -24,6 +28,8 @@ import {
 interface ChatSidebarProps {
   productId: string;
   className?: string;
+  isMobile?: boolean;
+  onClose?: () => void;
 }
 
 const quickActions = [
@@ -41,7 +47,7 @@ const quickActions = [
   "How do I compare to industry leaders?"
 ];
 
-export const ChatSidebar: React.FC<ChatSidebarProps> = ({ productId, className }) => {
+export const ChatSidebar: React.FC<ChatSidebarProps> = ({ productId, className, isMobile = false, onClose }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -54,11 +60,23 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({ productId, className }
   useEffect(() => {
     const loadChatHistory = async () => {
       if (!accessToken || !productId) return;
-      
+
       try {
         const historyMessages = await getChatHistory(productId, accessToken, 100);
-        setMessages(historyMessages);
-        
+
+        // If no chat history exists, add a welcome message (local only, not sent to API)
+        if (historyMessages.length === 0) {
+          const welcomeMessage: ChatMessage = {
+            id: 'welcome-message',
+            content: "👋 **Welcome to Geo AI.**\n\n&nbsp;\n\nI help you understand how your brand appears across AI search.\n\n&nbsp;\n\n🔍 Ask me to **check your visibility**, **audit citations**, or **compare competitors**.",
+            role: 'assistant',
+            timestamp: new Date().toISOString()
+          };
+          setMessages([welcomeMessage]);
+        } else {
+          setMessages(historyMessages);
+        }
+
         // Load suggested questions from localStorage as fallback
         const storedSuggestions = localStorage.getItem('geo_ai_latest_suggestions');
         if (storedSuggestions) {
@@ -115,7 +133,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({ productId, className }
 
     try {
       const response: ChatbotResponse | null = await sendChatMessage(messageText, productId, accessToken);
-      
+
       if (response) {
         // Add assistant answer
         const assistantMessage: ChatMessage = {
@@ -125,11 +143,11 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({ productId, className }
           timestamp: response.timestamp || new Date().toISOString()
         };
         setMessages(prev => [...prev, assistantMessage]);
-        
+
         // Update suggested questions and save to localStorage
         if (response.suggested_questions && response.suggested_questions.length > 0) {
           setSuggestedQuestions(response.suggested_questions);
-          
+
           // Save to localStorage (overwrite existing)
           localStorage.setItem('geo_ai_latest_suggestions', JSON.stringify({
             productId: productId,
@@ -182,35 +200,55 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({ productId, className }
   return (
     <div className={`flex flex-col h-full bg-gray-50/50 ${className}`}>
       {/* Header */}
-      <div className="flex items-center p-4 border-b bg-white/80 backdrop-blur">
-        <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-            <MessageSquare className="w-4 h-4 text-white" />
+      <div className={`flex items-center ${isMobile ? 'h-12 px-3' : 'h-16 px-6'} border-b bg-white shadow-sm z-10 relative`}>
+        <div className="flex items-center space-x-2 sm:space-x-3 flex-1">
+          <div className={`${isMobile ? 'w-7 h-7' : 'w-9 h-9'} rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-md ring-2 ring-white`}>
+            <Sparkles className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} text-white fill-white/20`} />
           </div>
-          <span className="font-semibold text-gray-900">Geo AI</span>
+          <div className="flex flex-col">
+            <span className={`font-bold text-gray-900 ${isMobile ? 'text-base' : 'text-lg'} leading-tight`}>Geo AI</span>
+            {!isMobile && (
+              <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Assistant</span>
+            )}
+          </div>
         </div>
+        {/* Close Button - Only on Mobile */}
+        {isMobile && onClose && (
+          <Button
+            onClick={onClose}
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 rounded-full"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        )}
       </div>
 
       {/* Messages Area */}
       <ScrollArea className="flex-1 p-5" ref={scrollAreaRef}>
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
-            <h2 className="text-2xl font-semibold text-gray-900">
-              What can I help with?
-            </h2>
           </div>
         ) : (
           <div className="space-y-4">
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start items-start gap-3'}`}
               >
-                <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${
-                  message.role === 'user' 
-                    ? 'bg-gray-800 text-white ml-8' 
-                    : 'bg-white text-gray-900 shadow-sm mr-8'
-                }`}>
+                {message.role !== 'user' && (
+                  <Avatar className="h-8 w-8 border border-gray-200 shadow-sm mt-1">
+                    <AvatarImage src="/geo-ai-avatar.png" alt="Geo AI" />
+                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                      <Search className="h-4 w-4" />
+                    </AvatarFallback>
+                  </Avatar>
+                )}
+                <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${message.role === 'user'
+                  ? 'bg-gray-800 text-white ml-8'
+                  : 'bg-white text-gray-900 shadow-sm'
+                  }`}>
                   {message.role === 'user' ? (
                     <p className="text-sm leading-relaxed">{message.content}</p>
                   ) : (
@@ -279,7 +317,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({ productId, className }
             </div>
           </div>
         ) : null}
-        
+
         {/* Input Field with Icons */}
         <div className="bg-white rounded-3xl shadow-sm p-4 mb-3">
           <input
@@ -290,7 +328,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({ productId, className }
             className="w-full text-base placeholder:text-gray-400 focus:outline-none mb-4"
             disabled={isLoading}
           />
-          
+
           {/* Icons Row */}
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-1">
@@ -307,7 +345,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({ productId, className }
                 <MoreHorizontal className="w-5 h-5 text-gray-500" />
               </Button>
             </div>
-            
+
             <Button
               onClick={() => handleSendMessage(inputValue)}
               disabled={!inputValue.trim() || isLoading}
@@ -318,7 +356,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({ productId, className }
             </Button>
           </div>
         </div>
-        
+
         <p className="text-xs text-gray-500 text-center">
           AI can make mistakes. Please double-check responses.
         </p>

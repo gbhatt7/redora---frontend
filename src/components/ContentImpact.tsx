@@ -64,15 +64,15 @@ export const ContentImpact = ({
 
   return (
     <TooltipProvider>
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-5 md:space-y-6">
         <div className="flex items-center gap-2">
-          <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <BarChart3 className="h-7 w-7 text-primary" />
+          <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 lg:h-7 lg:w-7 text-primary" />
             Content Impact Analysis
           </h2>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Info className="h-5 w-5 text-muted-foreground cursor-help" />
+              <Info className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground cursor-help" />
             </TooltipTrigger>
             <TooltipContent className="max-w-sm">
               <p className="text-sm mb-2">
@@ -102,18 +102,18 @@ export const ContentImpact = ({
           </Tooltip>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
+        <Card className="w-full max-w-full">
+          <CardHeader className="p-3 md:p-4">
+            <CardTitle className="text-sm sm:text-base lg:text-lg flex items-center gap-2">
               Platform-wise Brand Performance
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="w-full">
-              <Table>
+          <CardContent className="p-3 md:p-4">
+            <div className="w-full overflow-x-auto -mx-3 px-3">
+              <Table className="min-w-[500px] w-full">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="font-bold">
+                    <TableHead className="font-bold text-[10px] sm:text-xs lg:text-sm">
                       Platform
                     </TableHead>
                     {brandNames.map((brand, i) => {
@@ -121,7 +121,7 @@ export const ContentImpact = ({
                       return (
                         <TableHead
                           key={i}
-                          className={`text-center font-bold ${
+                          className={`text-center font-bold text-[10px] sm:text-xs lg:text-sm ${
                             isYourBrand ? "bg-primary/5 text-primary" : ""
                           }`}
                         >
@@ -144,7 +144,7 @@ export const ContentImpact = ({
 
                     return (
                       <TableRow key={rowIndex}>
-                        <TableCell className="font-semibold">
+                        <TableCell className="font-semibold text-xs sm:text-sm lg:text-base px-2 py-1.5 lg:px-4">
                           {sourceName}
                         </TableCell>
                         {brandNames.map((brand, index) => {
@@ -164,19 +164,19 @@ export const ContentImpact = ({
                           return (
                             <TableCell
                               key={index}
-                              className={`text-center ${
+                              className={`text-center px-2 py-1.5 lg:px-4 ${
                                 isYourBrand ? "bg-primary/5" : ""
                               }`}
                             >
                               <div className="space-y-1">
                                 <div
-                                  className={`font-semibold ${
+                                  className={`font-semibold text-xs sm:text-sm ${
                                     isYourBrand ? "text-primary font-bold" : ""
                                   }`}
                                 >
                                   Mentions: {mentions}
                                 </div>
-                                <Badge className={getMentionScoreColor(tier)}>
+                                <Badge className={`${getMentionScoreColor(tier)} text-[10px] sm:text-xs px-1.5 py-0.5 sm:px-2 sm:py-1`}>
                                   {tier}
                                 </Badge>
                               </div>

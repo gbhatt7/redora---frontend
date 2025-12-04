@@ -18,8 +18,9 @@ import {
   SidebarContent,
   SidebarInset,
   SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Printer, Plus } from "lucide-react";
@@ -165,7 +166,36 @@ export default function Results() {
   const initialPollDoneRef = useRef(false); // Track if first poll done
   const toastRef = useRef(toast); // Stable toast reference
   const analysisTriggeredAtRef = useRef<number | null>(null); // Timestamp when new analysis was triggered
-  
+  const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
+
+  // Prevent body and page scroll when mobile chat is open
+  useEffect(() => {
+    if (isMobileChatOpen) {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+      // Also prevent scrolling on the main container
+      const mainContainer = document.querySelector('.min-h-screen');
+      if (mainContainer) {
+        (mainContainer as HTMLElement).style.overflow = 'hidden';
+      }
+    } else {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+      const mainContainer = document.querySelector('.min-h-screen');
+      if (mainContainer) {
+        (mainContainer as HTMLElement).style.overflow = '';
+      }
+    }
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+      const mainContainer = document.querySelector('.min-h-screen');
+      if (mainContainer) {
+        (mainContainer as HTMLElement).style.overflow = '';
+      }
+    };
+  }, [isMobileChatOpen]);
+
   // Keep toast ref updated
   useEffect(() => {
     toastRef.current = toast;
@@ -333,7 +363,7 @@ export default function Results() {
             // ✅ Check if this analysis is newer than when we triggered a new analysis
             const analysisTimestamp = currentDate ? new Date(currentDate).getTime() : 0;
             const isNewAnalysis = !analysisTriggeredAtRef.current || analysisTimestamp > analysisTriggeredAtRef.current;
-            
+
             console.log(`📅 [POLL] Analysis date: ${currentDate}, Trigger time: ${analysisTriggeredAtRef.current ? new Date(analysisTriggeredAtRef.current).toISOString() : 'none'}, isNew: ${isNewAnalysis}`);
 
             // ✅ COMPLETED or FAILED = STOP ONLY IF it's a NEW analysis (not old data)
@@ -388,13 +418,13 @@ export default function Results() {
               );
               return;
             }
-            
+
             // ✅ OLD completed data found but waiting for NEW analysis - continue polling
             if ((currentStatus === "completed" || currentStatus === "failed") && !isNewAnalysis) {
               console.log(`⏳ [POLL] Found OLD ${currentStatus} analysis - waiting for NEW analysis, continuing poll`);
               setCurrentAnalytics(mostRecentAnalysis);
               setIsLoading(true); // Show loading since we're waiting for new data
-              
+
               if (!hasShownStartMessageRef.current && mountedRef.current) {
                 toastRef.current({
                   title: "Analysis in Progress",
@@ -404,7 +434,7 @@ export default function Results() {
                 });
                 hasShownStartMessageRef.current = true;
               }
-              
+
               scheduleNextPoll(productId, isInitialPoll);
               return;
             }
@@ -444,7 +474,7 @@ export default function Results() {
             } else {
               setIsLoading(true);
             }
-            
+
             console.log(`⚠️ [POLL] Unknown status "${currentStatus}" - continuing polling`);
             scheduleNextPoll(productId, isInitialPoll);
           } else {
@@ -552,7 +582,7 @@ export default function Results() {
           : (state.keywords || []).map((k: string) => ({ keyword: k })),
       };
       setResultsData(normalized);
-      
+
       // ✅ Store analysisTriggeredAt if coming from InputPage with new analysis
       if ((state as any).analysisTriggeredAt) {
         analysisTriggeredAtRef.current = (state as any).analysisTriggeredAt;
@@ -681,12 +711,12 @@ export default function Results() {
     // If currentAnalytics is completed, show it
     if (currentAnalytics) {
       const currentStatus = currentAnalytics.status?.toLowerCase() || "";
-      
+
       // Show completed analysis directly
       if (currentStatus === "completed") {
         return currentAnalytics;
       }
-      
+
       // For in_progress/error/failed, show previous completed if available
       if (
         (currentStatus === "error" || currentStatus === "in_progress" || currentStatus === "failed") &&
@@ -695,18 +725,93 @@ export default function Results() {
       ) {
         return previousAnalytics;
       }
-      
+
       // Otherwise show current even if not ideal
       return currentAnalytics;
     }
-    
+
     // Fallback to previous if no current
     if (previousAnalytics) {
       return previousAnalytics;
     }
-    
+
     return null;
   })();
+
+  // Chat bubble component that uses sidebar toggle on desktop, full-screen on mobile
+  const ChatBubbleButton = () => {
+    const { toggleSidebar } = useSidebar();
+
+    const handleChatClick = () => {
+      // Check if mobile (window width < 768px)
+      if (window.innerWidth < 768) {
+        setIsMobileChatOpen(true);
+      } else {
+        toggleSidebar();
+      }
+    };
+
+    const handleCloseMobileChat = () => {
+      setIsMobileChatOpen(false);
+    };
+
+    return (
+      <>
+        {/* Chat Trigger - Bottom Right (Mobile & Desktop) */}
+        <div 
+          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 lg:bottom-8 lg:right-8 no-print z-50 group" 
+          onClick={handleChatClick}
+        >
+          <div className="relative">
+            {/* Desktop: Animated glow effect */}
+            <div className="hidden md:block absolute -inset-2 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-3xl blur-xl opacity-40 group-hover:opacity-60 transition-opacity duration-300 animate-pulse"></div>
+            <div className="relative">
+              <div className="relative bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl md:rounded-3xl shadow-xl md:shadow-2xl hover:shadow-2xl md:hover:shadow-3xl transition-all duration-300 hover:scale-105 cursor-pointer overflow-hidden">
+                <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
+                <div className="relative px-3 py-2 sm:px-4 sm:py-3 md:px-5 md:py-4 lg:px-6 lg:py-4 flex items-center gap-2 sm:gap-3">
+                  <div className="flex-shrink-0">
+                    <svg className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 text-white drop-shadow-lg" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2C6.48 2 2 6.48 2 12c0 1.54.36 3 .97 4.29L2 22l5.71-.97C9 21.64 10.46 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm0 18c-1.38 0-2.68-.29-3.86-.79l-.29-.15-2.99.51.51-2.99-.15-.29C4.79 14.68 4.5 13.38 4.5 12 4.5 7.86 7.86 4.5 12 4.5S19.5 7.86 19.5 12 16.14 19.5 12 19.5z" />
+                      <circle cx="8" cy="12" r="1.5" />
+                      <circle cx="12" cy="12" r="1.5" />
+                      <circle cx="16" cy="12" r="1.5" />
+                    </svg>
+                  </div>
+                  <div className="flex flex-col">
+                    <div className="text-white font-bold text-sm sm:text-base lg:text-xl tracking-wide drop-shadow-lg whitespace-nowrap">Geo AI</div>
+                    <div className="hidden sm:block text-white/90 text-[10px] lg:text-xs font-bold tracking-wide whitespace-nowrap">Your AI SEO Companion</div>
+                  </div>
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+              </div>
+              {/* Desktop: Speech bubble tail */}
+              <div className="hidden md:block absolute -bottom-2 right-6">
+                <svg width="20" height="12" viewBox="0 0 20 12" fill="none" className="drop-shadow-xl">
+                  <path d="M0 0C5 0 10 8 20 12H0V0Z" className="fill-purple-600" />
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile Full-Screen Chat Overlay */}
+        {isMobileChatOpen && (
+          <div className="fixed inset-0 z-50 bg-background md:hidden overflow-hidden">
+            <div className="relative w-full h-full flex flex-col overflow-hidden">
+              {/* Chat Content - Full height, no extra padding */}
+              <div className="flex-1 overflow-hidden h-full">
+                <ChatSidebar 
+                  productId={resultsData.product.id} 
+                  isMobile={true}
+                  onClose={handleCloseMobileChat}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  };
 
   if (shouldShowLoader && !displayAnalytics) {
     return (
@@ -806,7 +911,7 @@ export default function Results() {
 
   const yourBrandTotal =
     Object.values(brandMentionTotals)[
-      Object.values(brandMentionTotals).length - 1
+    Object.values(brandMentionTotals).length - 1
     ] || 0;
 
   const handlePrint = () => {
@@ -818,22 +923,22 @@ export default function Results() {
       defaultOpen={true}
       style={
         {
-          "--sidebar-width": "28rem",
+          "--sidebar-width": "20rem",
         } as React.CSSProperties
       }
     >
-      <Sidebar side="left" collapsible="offcanvas" className="no-print">
+      <Sidebar side="left" collapsible="offcanvas" className="no-print hidden md:flex">
         <SidebarContent>
           <ChatSidebar productId={resultsData.product.id} />
         </SidebarContent>
       </Sidebar>
 
-      <SidebarInset>
+      <SidebarInset className={`w-full max-w-full overflow-x-hidden ${isMobileChatOpen ? 'overflow-y-hidden h-screen' : ''}`}>
         <Layout
-          sidebarTrigger={<SidebarTrigger className="h-8 w-8 no-print" />}
+          sidebarTrigger={<SidebarTrigger className="h-8 w-8 no-print hidden md:flex" />}
         >
-          <div className="min-h-screen bg-background">
-            <div className="container mx-auto px-4 py-8 space-y-8">
+          <div className={`min-h-screen bg-background overflow-x-hidden w-full max-w-full ${isMobileChatOpen ? 'overflow-y-hidden h-screen' : ''}`}>
+            <div className="container mx-auto px-3 py-4 sm:px-4 sm:py-6 md:px-6 md:py-8 space-y-4 sm:space-y-6 md:space-y-8 max-w-full">
               {/* GeoRankers Print Header - Shows only in print, once at top */}
               <div className="hidden print:block print-only-header">
                 <h1 className="text-5xl font-bold font-bold gradient-text">
@@ -866,9 +971,9 @@ export default function Results() {
                   onClick={handleNewAnalysis}
                   variant="default"
                   size="lg"
-                  className="gap-2 text-lg px-12 shadow-elevated hover:shadow-glow"
+                  className="gap-2 w-full sm:w-auto text-sm sm:text-base lg:text-lg px-4 py-2 sm:px-6 sm:py-2.5 lg:px-12 shadow-elevated hover:shadow-glow"
                 >
-                  <Plus className="h-5 w-5" /> New Analysis{" "}
+                  <Plus className="h-4 w-4 sm:h-5 sm:w-5" /> New Analysis{" "}
                 </Button>
               </div>
 
@@ -879,25 +984,25 @@ export default function Results() {
                   executiveSummary={
                     data.executive_summary
                       ? {
-                          brand_score_and_tier:
-                            data.executive_summary.brand_score_and_tier || "",
-                          strengths: data.executive_summary.strengths || [],
-                          weaknesses: data.executive_summary.weaknesses || [],
-                          competitor_positioning: {
-                            leaders:
-                              data.executive_summary.competitor_positioning
-                                ?.leaders || [],
-                            mid_tier:
-                              data.executive_summary.competitor_positioning
-                                ?.mid_tier || [],
-                            laggards:
-                              data.executive_summary.competitor_positioning
-                                ?.laggards || [],
-                          },
-                          prioritized_actions:
-                            data.executive_summary.prioritized_actions || [],
-                          conclusion: data.executive_summary.conclusion || "",
-                        }
+                        brand_score_and_tier:
+                          data.executive_summary.brand_score_and_tier || "",
+                        strengths: data.executive_summary.strengths || [],
+                        weaknesses: data.executive_summary.weaknesses || [],
+                        competitor_positioning: {
+                          leaders:
+                            data.executive_summary.competitor_positioning
+                              ?.leaders || [],
+                          mid_tier:
+                            data.executive_summary.competitor_positioning
+                              ?.mid_tier || [],
+                          laggards:
+                            data.executive_summary.competitor_positioning
+                              ?.laggards || [],
+                        },
+                        prioritized_actions:
+                          data.executive_summary.prioritized_actions || [],
+                        conclusion: data.executive_summary.conclusion || "",
+                      }
                       : undefined
                   }
                   yourBrandTotal={yourBrandTotal}
@@ -928,27 +1033,27 @@ export default function Results() {
               {/* Competitor Analysis Section */}
               {(data.competitor_visibility_table?.header &&
                 data.competitor_visibility_table?.rows) ||
-              (data.competitor_sentiment_table?.header &&
-                data.competitor_sentiment_table?.rows) ? (
+                (data.competitor_sentiment_table?.header &&
+                  data.competitor_sentiment_table?.rows) ? (
                 <div style={{ pageBreakInside: "avoid", breakInside: "avoid" }}>
                   <CompetitorAnalysis
                     brandName={data.brand_name || ""}
                     analysis={{
                       competitor_visibility_table:
                         data.competitor_visibility_table?.header &&
-                        data.competitor_visibility_table?.rows
+                          data.competitor_visibility_table?.rows
                           ? {
-                              header: data.competitor_visibility_table.header,
-                              rows: data.competitor_visibility_table.rows,
-                            }
+                            header: data.competitor_visibility_table.header,
+                            rows: data.competitor_visibility_table.rows,
+                          }
                           : undefined,
                       competitor_sentiment_table:
                         data.competitor_sentiment_table?.header &&
-                        data.competitor_sentiment_table?.rows
+                          data.competitor_sentiment_table?.rows
                           ? {
-                              header: data.competitor_sentiment_table.header,
-                              rows: data.competitor_sentiment_table.rows,
-                            }
+                            header: data.competitor_sentiment_table.header,
+                            rows: data.competitor_sentiment_table.rows,
+                          }
                           : undefined,
                     }}
                   />
@@ -990,13 +1095,16 @@ export default function Results() {
               )}
 
               {/* Print button - Hidden in print */}
-              <div className="flex justify-center pt-8 no-print">
-                <Button onClick={handlePrint} size="lg" className="gap-2">
-                  <Printer className="h-5 w-5" /> Download Report
+              <div className="flex justify-center pt-4 sm:pt-6 md:pt-8 no-print">
+                <Button onClick={handlePrint} size="lg" className="gap-2 w-full sm:w-auto text-sm sm:text-base lg:text-lg px-4 py-2 sm:px-6 sm:py-2.5 lg:px-12">
+                  <Printer className="h-4 w-4 sm:h-5 sm:w-5" /> Download Report
                 </Button>
               </div>
             </div>
           </div>
+
+          {/* GeoAi Chat Bubble - Bottom Right */}
+          <ChatBubbleButton />
         </Layout>
       </SidebarInset>
     </SidebarProvider>

@@ -278,8 +278,12 @@ All colors MUST be HSL. Inspired by GeoRankers branding with blue gradients.
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-background text-foreground font-sans antialiased overflow-x-hidden;
     background: hsl(var(--gradient-bg));
+  }
+  
+  html {
+    overflow-x: hidden;
   }
 
   .executive-summary {

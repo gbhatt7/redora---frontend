@@ -57,14 +57,14 @@ export const CompetitorAnalysis = ({
 
   return (
     <TooltipProvider>
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-5 md:space-y-6">
         <div className="flex items-center gap-2">
-          <h2 className="text-2xl font-bold text-foreground">
+          <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground">
             Competitor Analysis
           </h2>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Info className="h-5 w-5 text-muted-foreground cursor-help" />
+              <Info className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground cursor-help" />
             </TooltipTrigger>
             <TooltipContent className="max-w-sm">
               <p className="text-sm">
@@ -76,13 +76,13 @@ export const CompetitorAnalysis = ({
 
         {/* Competitor Visibility by Keyword */}
         {analysis.competitor_visibility_table && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
+          <Card className="w-full max-w-full">
+            <CardHeader className="p-3 md:p-4">
+              <CardTitle className="text-sm sm:text-base lg:text-lg flex items-center gap-2">
                 Competitor Visibility by Keyword
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                    <Info className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground cursor-help" />
                   </TooltipTrigger>
                   <TooltipContent className="max-w-sm">
                     <p className="text-sm">
@@ -92,12 +92,12 @@ export const CompetitorAnalysis = ({
                 </Tooltip>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="w-full">
-                <Table className="table-fixed w-full">
+            <CardContent className="p-3 md:p-4">
+              <div className="w-full overflow-x-auto -mx-3 px-3">
+                <Table className="table-fixed min-w-[500px] w-full">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="whitespace-normal break-words font-semibold">
+                      <TableHead className="whitespace-normal break-words font-semibold text-[10px] sm:text-xs lg:text-sm">
                         Brand's
                       </TableHead>
                       {analysis.competitor_visibility_table.header
@@ -105,7 +105,7 @@ export const CompetitorAnalysis = ({
                         .map((header, index) => (
                           <TableHead
                             key={index}
-                            className="whitespace-normal break-words font-semibold text-center"
+                            className="whitespace-normal break-words font-semibold text-center text-[10px] sm:text-xs lg:text-sm"
                           >
                             {header}
                           </TableHead>
@@ -126,7 +126,7 @@ export const CompetitorAnalysis = ({
                             }
                           >
                             <TableCell
-                              className={`whitespace-normal break-words font-medium ${
+                              className={`whitespace-normal break-words font-medium text-xs sm:text-sm lg:text-base px-2 py-1.5 lg:px-4 ${
                                 isYourBrand ? "text-primary font-bold" : ""
                               }`}
                             >
@@ -135,7 +135,7 @@ export const CompetitorAnalysis = ({
                             {row.slice(1).map((cell, cellIndex) => (
                               <TableCell
                                 key={cellIndex}
-                                className="text-center whitespace-normal break-words"
+                                className="text-center whitespace-normal break-words text-xs sm:text-sm lg:text-base px-2 py-1.5 lg:px-4"
                               >
                                 <span
                                   className={
@@ -161,13 +161,13 @@ export const CompetitorAnalysis = ({
 
         {/* Competitor Sentiment Analysis */}
         {analysis.competitor_sentiment_table && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
+          <Card className="w-full max-w-full">
+            <CardHeader className="p-3 md:p-4">
+              <CardTitle className="text-sm sm:text-base lg:text-lg flex items-center gap-2">
                 Competitor Sentiment Analysis
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                    <Info className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground cursor-help" />
                   </TooltipTrigger>
                   <TooltipContent className="max-w-sm">
                     <p className="text-sm">
@@ -177,18 +177,18 @@ export const CompetitorAnalysis = ({
                 </Tooltip>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="w-full">
-                <Table className="table-fixed w-full">
+            <CardContent className="p-3 md:p-4">
+              <div className="w-full overflow-x-auto -mx-3 px-3">
+                <Table className="table-fixed min-w-[400px] w-full">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[15%] min-w-[120px] font-bold">
+                      <TableHead className="w-[15%] min-w-[100px] font-bold text-[10px] sm:text-xs lg:text-sm">
                         Brand
                       </TableHead>
-                      <TableHead className="w-[65%] min-w-[300px] font-bold">
+                      <TableHead className="w-[65%] min-w-[200px] font-bold text-[10px] sm:text-xs lg:text-sm">
                         Sentiment Summary
                       </TableHead>
-                      <TableHead className="w-[20%] min-w-[150px] text-center font-bold">
+                      <TableHead className="w-[20%] min-w-[100px] text-center font-bold text-[10px] sm:text-xs lg:text-sm">
                         Overall Outlook
                       </TableHead>
                     </TableRow>
@@ -207,21 +207,21 @@ export const CompetitorAnalysis = ({
                             }
                           >
                             <TableCell
-                              className={`font-semibold w-[15%] whitespace-normal break-words ${
+                              className={`font-semibold w-[15%] whitespace-normal break-words text-xs sm:text-sm lg:text-base px-2 py-1.5 lg:px-4 ${
                                 isYourBrand ? "text-primary font-bold" : ""
                               }`}
                             >
                               {row[0]}
                             </TableCell>
                             <TableCell
-                              className={`font-semibold w-[65%] whitespace-normal break-words${
+                              className={`font-semibold w-[65%] whitespace-normal break-words text-xs sm:text-sm lg:text-base px-2 py-1.5 lg:px-4 ${
                                 isYourBrand ? "text-primary font-bold" : ""
                               }`}
                             >
                               {row[1]}
                             </TableCell>
-                            <TableCell className="text-center w-[20%]">
-                              <Badge className={getSentimentColor(row[2])}>
+                            <TableCell className="text-center w-[20%] px-2 py-1.5 lg:px-4">
+                              <Badge className={`${getSentimentColor(row[2])} text-[10px] sm:text-xs px-1.5 py-0.5 sm:px-2 sm:py-1`}>
                                 {row[2]}
                               </Badge>
                             </TableCell>

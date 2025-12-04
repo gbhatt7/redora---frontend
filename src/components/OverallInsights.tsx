@@ -106,14 +106,14 @@ export const OverallInsights = ({
 
   return (
     <TooltipProvider>
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-5 md:space-y-6">
         <div className="flex items-center gap-2">
-          <h2 className="text-2xl font-bold text-foreground">
+          <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground">
             Overall Insights
           </h2>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Info className="h-5 w-5 text-muted-foreground cursor-help" />
+              <Info className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground cursor-help" />
             </TooltipTrigger>
             <TooltipContent className="max-w-sm">
               <p className="text-sm">
@@ -123,10 +123,10 @@ export const OverallInsights = ({
           </Tooltip>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
           {/* AI Visibility Card */}
           <Card
-            className={`border-2 ${
+            className={`w-full max-w-full border-2 ${
               insights?.ai_visibility?.tier?.toLowerCase() === "high"
                 ? "border-success"
                 : insights?.ai_visibility?.tier?.toLowerCase() === "medium"
@@ -136,14 +136,14 @@ export const OverallInsights = ({
                 : "border-border"
             }`}
           >
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-2 sm:pb-3 p-3 md:p-4">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Eye className="h-5 w-5 text-primary" />
+                <CardTitle className="text-sm sm:text-base lg:text-lg flex items-center gap-2">
+                  <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                   AI Visibility
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                      <Info className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground cursor-help" />
                     </TooltipTrigger>
                     <TooltipContent className="max-w-sm">
                       <p className="text-sm mb-2">
@@ -167,15 +167,15 @@ export const OverallInsights = ({
                   </Tooltip>
                 </CardTitle>
                 <Badge
-                  className={getTierColor(insights?.ai_visibility?.tier || "")}
+                  className={`${getTierColor(insights?.ai_visibility?.tier || "")} text-[10px] sm:text-xs px-1.5 py-0.5 sm:px-2 sm:py-1`}
                   variant="secondary"
                 >
                   {insights?.ai_visibility?.tier || "N/A"}
                 </Badge>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="pt-4">
+            <CardContent className="space-y-3 sm:space-y-4 p-3 md:p-4">
+              <div className="pt-2 sm:pt-4">
                 <Speedometer
                   value={visibilityScore}
                   color={
@@ -195,7 +195,7 @@ export const OverallInsights = ({
 
           {/* Brand Mentions Card */}
           <Card
-            className={`border-2 ${
+            className={`w-full max-w-full border-2 ${
               brandMentionsLevel.toLowerCase() === "high"
                 ? "border-success"
                 : brandMentionsLevel.toLowerCase() === "medium"
@@ -205,14 +205,14 @@ export const OverallInsights = ({
                 : "border-border"
             }`}
           >
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-2 sm:pb-3 p-3 md:p-4">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5 text-primary" />
+                <CardTitle className="text-sm sm:text-base lg:text-lg flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                   Brand Mentions
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                      <Info className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground cursor-help" />
                     </TooltipTrigger>
                     <TooltipContent className="max-w-sm">
                       <p className="text-sm mb-2">
@@ -240,7 +240,7 @@ export const OverallInsights = ({
                   </Tooltip>
                 </CardTitle>
                 <Badge
-                  className={getTierColor(brandMentionsLevel)}
+                  className={`${getTierColor(brandMentionsLevel)} text-[10px] sm:text-xs px-1.5 py-0.5 sm:px-2 sm:py-1`}
                   variant="secondary"
                 >
                   {brandMentionsLevel}
@@ -248,9 +248,9 @@ export const OverallInsights = ({
               </div>
             </CardHeader>
 
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <div className="pt-4">
+            <CardContent className="space-y-3 sm:space-y-4 p-3 md:p-4">
+              <div className="space-y-2 sm:space-y-3">
+                <div className="pt-2 sm:pt-4">
                   <Speedometer
                     value={yourBrandTotal}
                     maxValue={topBrandTotal}
@@ -265,7 +265,7 @@ export const OverallInsights = ({
                     }
                   />
                 </div>
-                <div className="text-center text-sm text-muted-foreground">
+                <div className="text-center text-xs sm:text-sm text-muted-foreground">
                   Top Brand Mention -{" "}
                   <span className="font-bold text-primary">{topBrand}</span> -{" "}
                   <span className="font-bold text-primary">
@@ -278,7 +278,7 @@ export const OverallInsights = ({
 
           {/* Sentiment Analysis Card */}
           <Card
-            className={`border-2 ${
+            className={`w-full max-w-full border-2 ${
               insights?.dominant_sentiment?.sentiment?.toLowerCase() ===
               "positive"
                 ? "border-success"
@@ -291,14 +291,14 @@ export const OverallInsights = ({
                 : "border-border"
             }`}
           >
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-2 sm:pb-3 p-3 md:p-4">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-primary" />
+                <CardTitle className="text-sm sm:text-base lg:text-lg flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                   Sentiment Analysis
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                      <Info className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground cursor-help" />
                     </TooltipTrigger>
                     <TooltipContent className="max-w-sm">
                       <p className="text-sm">
@@ -311,17 +311,17 @@ export const OverallInsights = ({
                   </Tooltip>
                 </CardTitle>
                 <Badge
-                  className={getSentimentColor(
+                  className={`${getSentimentColor(
                     insights?.dominant_sentiment?.sentiment || ""
-                  )}
+                  )} text-[10px] sm:text-xs px-1.5 py-0.5 sm:px-2 sm:py-1`}
                   variant="secondary"
                 >
                   {insights?.dominant_sentiment?.sentiment || "N/A"}
                 </Badge>
               </div>
             </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground leading-relaxed">
+            <CardContent className="p-3 md:p-4">
+              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
                 {insights?.dominant_sentiment?.statement ||
                   "No sentiment analysis available"}
               </p>
@@ -331,14 +331,14 @@ export const OverallInsights = ({
 
         {/* Executive Summary Section */}
         {executiveSummary && (
-          <Card className="border-2 border-primary shadow-excutive-summary/20">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-primary" />
+          <Card className="w-full max-w-full border-2 border-primary shadow-excutive-summary/20 p-3 md:p-4">
+            <CardHeader className="p-0 pb-3">
+              <CardTitle className="text-sm sm:text-base lg:text-lg flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                 Executive Summary
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                    <Info className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground cursor-help" />
                   </TooltipTrigger>
                   <TooltipContent className="max-w-sm">
                     <p className="text-sm">
@@ -348,10 +348,10 @@ export const OverallInsights = ({
                 </Tooltip>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6 text-sm text-muted-foreground">
+            <CardContent className="space-y-4 sm:space-y-5 md:space-y-6 text-xs sm:text-sm text-muted-foreground p-0">
               {/* Benchmark */}
               <div>
-                <h3 className="font-semibold text-foreground">
+                <h3 className="text-sm font-semibold text-foreground mb-1">
                   Brand Visibility Scoring and Tier
                 </h3>
                 <p>{executiveSummary.brand_score_and_tier}</p>
@@ -359,8 +359,8 @@ export const OverallInsights = ({
 
               {/* Strengths */}
               <div>
-                <h3 className="font-semibold text-foreground">Strengths</h3>
-                <ul className="list-disc pl-5">
+                <h3 className="text-sm font-semibold text-foreground mb-1">Strengths</h3>
+                <ul className="list-disc pl-4 space-y-1">
                   {executiveSummary.strengths.map((s, idx) => (
                     <li key={idx}>{s}</li>
                   ))}
@@ -369,8 +369,8 @@ export const OverallInsights = ({
 
               {/* Weaknesses */}
               <div>
-                <h3 className="font-semibold text-foreground">Weaknesses</h3>
-                <ul className="list-disc pl-5">
+                <h3 className="text-sm font-semibold text-foreground mb-1">Weaknesses</h3>
+                <ul className="list-disc pl-4 space-y-1">
                   {executiveSummary.weaknesses.map((w, idx) => (
                     <li key={idx}>{w}</li>
                   ))}
@@ -379,56 +379,58 @@ export const OverallInsights = ({
 
               {/* Competitor Benchmarking */}
               <div>
-                <h3 className="font-semibold text-foreground">
+                <h3 className="text-sm font-semibold text-foreground mb-1">
                   Competitor Benchmarking
                 </h3>
-                <div>
-                  <p className="font-medium">Leaders</p>
-                  <ul className="list-disc pl-5">
-                    {executiveSummary.competitor_positioning.leaders.map(
-                      (l, idx) => (
-                        <li key={idx}>
-                          {l.name} : {l.summary}
-                        </li>
-                      )
-                    )}
-                  </ul>
-                </div>
-                <div>
-                  <p className="font-medium">Mid-Tier</p>
-                  <ul className="list-disc pl-5">
-                    {executiveSummary.competitor_positioning.mid_tier.map(
-                      (m, idx) => (
-                        <li key={idx}>
-                          {m.name} : {m.summary}
-                        </li>
-                      )
-                    )}
-                  </ul>
-                </div>
-                {executiveSummary.competitor_positioning.laggards.length >
-                  0 && (
+                <div className="space-y-2">
                   <div>
-                    <p className="font-medium">Laggards</p>
-                    <ul className="list-disc pl-5">
-                      {executiveSummary.competitor_positioning.laggards.map(
-                        (lag, idx) => (
+                    <p className="font-medium text-xs sm:text-sm">Leaders</p>
+                    <ul className="list-disc pl-4 space-y-1">
+                      {executiveSummary.competitor_positioning.leaders.map(
+                        (l, idx) => (
                           <li key={idx}>
-                            {lag.name} : {lag.summary}
+                            {l.name} : {l.summary}
                           </li>
                         )
                       )}
                     </ul>
                   </div>
-                )}
+                  <div>
+                    <p className="font-medium text-xs sm:text-sm">Mid-Tier</p>
+                    <ul className="list-disc pl-4 space-y-1">
+                      {executiveSummary.competitor_positioning.mid_tier.map(
+                        (m, idx) => (
+                          <li key={idx}>
+                            {m.name} : {m.summary}
+                          </li>
+                        )
+                      )}
+                    </ul>
+                  </div>
+                  {executiveSummary.competitor_positioning.laggards.length >
+                    0 && (
+                    <div>
+                      <p className="font-medium text-xs sm:text-sm">Laggards</p>
+                      <ul className="list-disc pl-4 space-y-1">
+                        {executiveSummary.competitor_positioning.laggards.map(
+                          (lag, idx) => (
+                            <li key={idx}>
+                              {lag.name} : {lag.summary}
+                            </li>
+                          )
+                        )}
+                      </ul>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Actions */}
               <div>
-                <h3 className="font-semibold text-foreground">
+                <h3 className="text-sm font-semibold text-foreground mb-1">
                   Prioritized Actions
                 </h3>
-                <ul className="list-disc pl-5">
+                <ul className="list-disc pl-4 space-y-1">
                   {executiveSummary.prioritized_actions.map((a, idx) => (
                     <li key={idx}>{a}</li>
                   ))}
@@ -436,8 +438,8 @@ export const OverallInsights = ({
               </div>
 
               {/* Conclusion */}
-              <div className="border-t border-border pt-4">
-                <h3 className="font-semibold text-foreground">Conclusion</h3>
+              <div className="border-t border-border pt-3 sm:pt-4">
+                <h3 className="text-sm font-semibold text-foreground mb-1">Conclusion</h3>
                 <p>{executiveSummary.conclusion}</p>
               </div>
             </CardContent>

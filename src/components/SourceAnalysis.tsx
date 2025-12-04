@@ -126,14 +126,14 @@ export const SourceAnalysis = ({
 
   return (
     <TooltipProvider>
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-5 md:space-y-6">
         <div className="flex items-center gap-2">
-          <h2 className="text-2xl font-bold text-foreground">
+          <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground">
             Source Analysis
           </h2>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Info className="h-5 w-5 text-muted-foreground cursor-help" />
+              <Info className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground cursor-help" />
             </TooltipTrigger>
             <TooltipContent className="max-w-sm">
               <p className="text-sm mb-2">
@@ -148,15 +148,16 @@ export const SourceAnalysis = ({
 
         {/* Chart - Wrapped to prevent breaks */}
         <div style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">
+          <Card className="w-full max-w-full">
+            <CardHeader className="p-3 md:p-4">
+              <CardTitle className="text-sm sm:text-base lg:text-lg">
                 Citation Distribution by Source Category
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={350}>
-                <BarChart data={chartData} margin={{ bottom: 60, top: 20 }}>
+            <CardContent className="p-3 md:p-4">
+              <div className="h-[200px] sm:h-[250px] md:h-[300px] lg:h-[350px]">
+                <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ bottom: 40, top: 10, left: 0, right: 0 }}>
                   <CartesianGrid
                     strokeDasharray="3 3"
                     stroke="hsl(var(--border))"
@@ -164,7 +165,7 @@ export const SourceAnalysis = ({
                   <XAxis
                     dataKey="category"
                     stroke="hsl(var(--muted-foreground))"
-                    fontSize={11}
+                    fontSize={8}
                     interval={0}
                     tick={({ x, y, payload }) => (
                       <g transform={`translate(${x},${y + 5})`}>
@@ -172,9 +173,9 @@ export const SourceAnalysis = ({
                           <text
                             key={index}
                             x={0}
-                            y={index * 11}
+                            y={index * 9}
                             textAnchor="middle"
-                            fontSize={10}
+                            fontSize={8}
                             fill="hsl(var(--foreground))"
                             fontWeight="500"
                           >
@@ -184,7 +185,7 @@ export const SourceAnalysis = ({
                       </g>
                     )}
                   />
-                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={9} />
                   <ChartTooltip
                     contentStyle={{
                       backgroundColor: "hsl(var(--card))",
@@ -199,52 +200,53 @@ export const SourceAnalysis = ({
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
+              </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Table - Wrapped to prevent breaks */}
         <div style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">
+          <Card className="w-full max-w-full">
+            <CardHeader className="p-3 md:p-4">
+              <CardTitle className="text-sm sm:text-base lg:text-lg">
                 Source Details for{" "}
                 <span className="font-bold text-primary">{brandName}</span>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="w-full">
-                <Table className="table-fixed w-full">
+            <CardContent className="p-3 md:p-4">
+              <div className="w-full overflow-x-auto -mx-3 px-3">
+                <Table className="table-fixed min-w-[600px] w-full">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="font-semibold w-1/5">Source</TableHead>
-                      <TableHead className="text-center font-semibold w-1/10">Mentions</TableHead>
-                      <TableHead className="text-center font-semibold w-1/10">Tier</TableHead>
-                      <TableHead className="font-semibold w-1/3">Insights</TableHead>
-                      <TableHead className="font-semibold w-1/5">Pages Used</TableHead>
+                      <TableHead className="font-semibold w-1/5 text-[10px] sm:text-xs lg:text-sm">Source</TableHead>
+                      <TableHead className="text-center font-semibold w-1/10 text-[10px] sm:text-xs lg:text-sm">Mentions</TableHead>
+                      <TableHead className="text-center font-semibold w-1/10 text-[10px] sm:text-xs lg:text-sm">Tier</TableHead>
+                      <TableHead className="font-semibold w-1/3 text-[10px] sm:text-xs lg:text-sm">Insights</TableHead>
+                      <TableHead className="font-semibold w-1/5 text-[10px] sm:text-xs lg:text-sm">Pages Used</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {sources.map((source, index) => (
                       <TableRow key={index} style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                        <TableCell className="font-medium break-words whitespace-normal w-1/5">
+                        <TableCell className="font-medium break-words whitespace-normal w-1/5 text-xs sm:text-sm lg:text-base px-2 py-1.5 lg:px-4">
                           {source.shortCategory}
                         </TableCell>
-                        <TableCell className="text-center font-semibold break-words whitespace-pre-line w-1/10">
+                        <TableCell className="text-center font-semibold break-words whitespace-pre-line w-1/10 text-xs sm:text-sm lg:text-base px-2 py-1.5 lg:px-4">
                           {source.mentions}
                         </TableCell>
-                        <TableCell className="text-center break-words whitespace-pre-line w-1/10">
+                        <TableCell className="text-center break-words whitespace-pre-line w-1/10 px-2 py-1.5 lg:px-4">
                           <Badge
-                            className={getVisibilityColor(source.score)}
+                            className={`${getVisibilityColor(source.score)} text-[10px] sm:text-xs px-1.5 py-0.5 sm:px-2 sm:py-1`}
                             variant="secondary"
                           >
                             {source.score}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground break-words whitespace-pre-line w-1/3">
+                        <TableCell className="text-xs sm:text-sm text-muted-foreground break-words whitespace-pre-line w-1/3 px-2 py-1.5 lg:px-4">
                           {source.insight || "No insights available"}
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground break-words whitespace-pre-line w-1/5">
+                        <TableCell className="text-[10px] sm:text-xs text-muted-foreground break-words whitespace-pre-line w-1/5 px-2 py-1.5 lg:px-4">
                           {Array.isArray(source.pages_used) && source.pages_used.length > 0 &&
                           !source.pages_used.includes("Absent") ? (
                             <ul className="space-y-1 pl-0">
