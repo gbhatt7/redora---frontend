@@ -15,7 +15,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { TOOLTIP_CONTENT } from "@/lib/formulas";
+import { TOOLTIP_CONTENT, getEffortColor, getImpactColor } from "@/lib/formulas";
 
 interface RecommendationsProps {
   recommendations: Array<{
@@ -25,29 +25,6 @@ interface RecommendationsProps {
     impact: string;
   }>;
 }
-
-const getEffortColor = (effort: string) => {
-  const effortLower = effort.toLowerCase();
-  if (effortLower === "high")
-    return "bg-destructive text-destructive-foreground";
-  if (effortLower === "medium")
-    return "bg-medium-neutral text-medium-neutral-foreground";
-  if (effortLower === "low") return "bg-success text-success-foreground";
-  return "bg-secondary text-secondary-foreground";
-};
-
-const getImpactColor = (impact: string) => {
-  switch (impact.toLowerCase()) {
-    case "high":
-      return "bg-success text-success-foreground";
-    case "medium":
-      return "bg-medium-neutral text-medium-neutral-foreground";
-    case "low":
-      return "bg-destructive text-destructive-foreground";
-    default:
-      return "bg-secondary text-secondary-foreground";
-  }
-};
 
 export const Recommendations = ({ recommendations }: RecommendationsProps) => {
   return (
@@ -64,13 +41,19 @@ export const Recommendations = ({ recommendations }: RecommendationsProps) => {
             </TooltipTrigger>
             <TooltipContent className="max-w-sm">
               <div className="text-sm space-y-1">
-                {Object.entries(TOOLTIP_CONTENT.recommendations).map(
-                  ([key, value]) => (
-                    <p key={key}>
-                      <span className="font-semibold">{key}:</span> {value}
-                    </p>
-                  )
-                )}
+                <p className="mb-2">{TOOLTIP_CONTENT.recommendations.description}</p>
+                <p>
+                  <span className="font-semibold">Overall Insight:</span> {TOOLTIP_CONTENT.recommendations.overallInsight}
+                </p>
+                <p>
+                  <span className="font-semibold">Suggested Action:</span> {TOOLTIP_CONTENT.recommendations.suggestedAction}
+                </p>
+                <p>
+                  <span className="font-semibold">Effort:</span> {TOOLTIP_CONTENT.recommendations.effort}
+                </p>
+                <p>
+                  <span className="font-semibold">Impact:</span> {TOOLTIP_CONTENT.recommendations.impact}
+                </p>
               </div>
             </TooltipContent>
           </Tooltip>

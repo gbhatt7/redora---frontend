@@ -25,7 +25,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { TOOLTIP_CONTENT } from "@/lib/formulas";
+import { 
+  TOOLTIP_CONTENT, 
+  getTierFromRatio, 
+  calculateMentionRatio,
+  getTierColor,
+  getBarColor,
+  safeNumber
+} from "@/lib/formulas";
 
 interface SourceAnalysisProps {
   contentImpact: {
@@ -43,51 +50,35 @@ interface SourceAnalysisProps {
   brandName: string;
 }
 
-const getVisibilityColor = (visibility: string) => {
-  switch (visibility.toLowerCase()) {
-    case "high":
-      return "bg-success text-success-foreground";
-    case "medium":
-      return "bg-medium-neutral text-medium-neutral-foreground";
-    case "low":
-    case "absent":
-      return "bg-destructive text-destructive-foreground";
-    default:
-      return "bg-secondary text-secondary-foreground";
-  }
-};
-
-const getMentionTier = (ratio: number) => {
-  if (ratio >= 70) return "High";
-  if (ratio >= 40) return "Medium";
-  if (ratio >= 0) return "Low";
-  return "N/A";
-};
-
 export const SourceAnalysis = ({
   contentImpact,
   brandName,
 }: SourceAnalysisProps) => {
-  const brandColumnIndex = contentImpact.header.findIndex(
-    (h) => h === brandName
-  );
+  // Extract brand names from header (every 3rd item starting at index 1)
+  // Header structure: [Sources, BrandA, BrandA Mentions, BrandA Mention Score, BrandB, ...]
+  const brandNames: string[] = [];
+  for (let i = 1; i < contentImpact.header.length - 2; i += 3) {
+    brandNames.push(contentImpact.header[i] as string);
+  }
+
+  // Find the index of brandName in the extracted brand names array
+  const brandIndex = brandNames.findIndex((b) => b === brandName);
 
   const sources = contentImpact.rows.map((row) => {
     const sourceName = row[0] as string;
-    const mentions = Number(row[brandColumnIndex + 1] || 0);
+    
+    // Row structure: [Source, BrandA_Tier, BrandA_Mentions, BrandA_Score, BrandB_Tier, BrandB_Mentions, BrandB_Score, ..., CitedByLLMs, pages_used]
+    // Each brand has 3 values in the row (Tier string, Mentions count, Mention Score string)
+    const mentions = brandIndex >= 0 ? safeNumber(row[2 + brandIndex * 3], 0) : 0;
 
-    const brandNames: string[] = [];
-    for (let i = 1; i < contentImpact.header.length - 2; i += 3) {
-      brandNames.push(contentImpact.header[i] as string);
-    }
-
+    // Get all mention counts for max calculation (mentions are at index 2 + i*3)
     const mentionCounts: number[] = brandNames.map((_, i) =>
-      Number(row[1 + i * 3 + 1] || 0)
+      safeNumber(row[2 + i * 3], 0)
     );
     const maxMentions = Math.max(...mentionCounts);
 
-    const mentionRatio = maxMentions > 0 ? (mentions / maxMentions) * 100 : 0;
-    const tier = getMentionTier(mentionRatio);
+    const mentionRatio = calculateMentionRatio(mentions, maxMentions);
+    const tier = getTierFromRatio(mentionRatio);
     const depthNote = contentImpact.depth_notes?.[brandName]?.[sourceName];
 
     const shortCategory = sourceName.split(/[\s\\/]+/).join("\n");
@@ -108,21 +99,6 @@ export const SourceAnalysis = ({
     citations: source.mentions,
     visibility: source.score,
   }));
-
-  const getBarColor = (visibility: string) => {
-    switch (visibility.toLowerCase()) {
-      case "high":
-        return "hsl(var(--success))";
-      case "medium":
-        return "hsl(var(--medium-neutral))";
-      case "low":
-        return "hsl(var(--destructive))";
-      case "absent":
-        return "hsl(var(--destructive))";
-      default:
-        return "hsl(var(--primary))";
-    }
-  };
 
   return (
     <TooltipProvider>
@@ -169,7 +145,7 @@ export const SourceAnalysis = ({
                     interval={0}
                     tick={({ x, y, payload }) => (
                       <g transform={`translate(${x},${y + 5})`}>
-                        {payload.value.split("\n").map((line, index) => (
+                        {payload.value.split("\n").map((line: string, index: number) => (
                           <text
                             key={index}
                             x={0}
@@ -237,7 +213,7 @@ export const SourceAnalysis = ({
                         </TableCell>
                         <TableCell className="text-center break-words whitespace-pre-line w-1/10 px-2 py-1.5 lg:px-4">
                           <Badge
-                            className={`${getVisibilityColor(source.score)} text-[10px] sm:text-xs px-1.5 py-0.5 sm:px-2 sm:py-1`}
+                            className={`${getTierColor(source.score)} text-[10px] sm:text-xs px-1.5 py-0.5 sm:px-2 sm:py-1`}
                             variant="secondary"
                           >
                             {source.score}

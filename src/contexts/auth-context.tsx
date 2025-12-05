@@ -210,19 +210,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   /* =====================
-     LOGOUT
+     LOGOUT - Clear all stored data
      ===================== */
   const logout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("application_id");
-    localStorage.removeItem("first_name");
-    localStorage.removeItem("keywords");
-    localStorage.removeItem("keyword_count");
-    localStorage.removeItem("product_id");
-    localStorage.removeItem("applications");
-    localStorage.removeItem("products");
-    localStorage.removeItem("pending_verification_email");
-    sessionStorage.removeItem("app_initialized");
+    // Clear all localStorage and sessionStorage data
+    localStorage.clear();
+    sessionStorage.clear();
+    
+    // Reset state
     setUser(null);
     setApplicationId(null);
     setApplications([]);

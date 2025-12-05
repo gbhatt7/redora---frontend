@@ -12,6 +12,7 @@ import { TOOLTIP_CONTENT } from "@/lib/formulas";
 interface BrandHeaderProps {
   brandName: string;
   brandWebsite: string;
+  brandLogo?: string;
   keywordsAnalyzed: string[];
   status: string;
   date: string;
@@ -34,6 +35,7 @@ const getStatusColor = (status: string) => {
 export const BrandHeader = ({
   brandName,
   brandWebsite,
+  brandLogo,
   keywordsAnalyzed,
   status,
   date,
@@ -71,6 +73,16 @@ export const BrandHeader = ({
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4 md:gap-5 lg:gap-6">
           <div className="flex-1">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 mb-2">
+              {brandLogo && (
+                <img 
+                  src={brandLogo} 
+                  alt={`${brandName} logo`}
+                  className="h-8 w-8 sm:h-10 sm:w-10 lg:h-12 lg:w-12 rounded-md object-contain bg-white p-1"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              )}
               <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-foreground">{brandName}</h1>
               <Badge className={getStatusColor(status)} variant="secondary">
                 {status}

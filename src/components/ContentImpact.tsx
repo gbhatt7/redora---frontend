@@ -15,10 +15,22 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { TOOLTIP_CONTENT } from "@/lib/formulas";
+import { 
+  TOOLTIP_CONTENT, 
+  getTierFromRatio, 
+  calculateMentionRatio,
+  getTierColor,
+  safeNumber
+} from "@/lib/formulas";
+
+interface BrandLogo {
+  brand: string;
+  logo: string;
+}
 
 interface ContentImpactProps {
   brandName: string;
+  brandLogos?: BrandLogo[];
   contentImpact: {
     header: string[];
     rows: (string | number | string[])[][];
@@ -33,30 +45,15 @@ interface ContentImpactProps {
   };
 }
 
-const getMentionScoreColor = (tier: string) => {
-  const tierLower = tier.toLowerCase();
-  if (tierLower === "high") return "bg-success text-success-foreground";
-  if (tierLower === "medium")
-    return "bg-medium-neutral text-medium-neutral-foreground";
-  if (tierLower === "low" || tierLower === "absent")
-    return "bg-destructive text-destructive-foreground";
-  return "bg-secondary text-secondary-foreground";
-};
-
-const getMentionTier = (ratio: number) => {
-  if (ratio >= 70) return "High";
-  if (ratio >= 40) return "Medium";
-  if (ratio >= 0) return "Low";
-  return "N/A";
-};
-
 export const ContentImpact = ({
   brandName,
+  brandLogos,
   contentImpact,
 }: ContentImpactProps) => {
   if (!contentImpact.rows || contentImpact.rows.length === 0) return null;
 
-  // Extract brand names from header
+  // Extract brand names from header (every 3rd item starting at index 1)
+  // Header structure: [Sources, BrandA, BrandA Mentions, BrandA Mention Score, BrandB, ...]
   const brandNames: string[] = [];
   for (let i = 1; i < contentImpact.header.length - 2; i += 3) {
     brandNames.push(contentImpact.header[i] as string);
@@ -78,25 +75,22 @@ export const ContentImpact = ({
               <p className="text-sm mb-2">
                 {TOOLTIP_CONTENT.contentImpact.description}
               </p>
-              <p className="text-xs">
+              <p className="text-xs mb-2">
                 {TOOLTIP_CONTENT.contentImpact.explanation}
-              </p>
-              <p className="text-sm mb-2">
-                {TOOLTIP_CONTENT.aiVisibility.description}
               </p>
               <p className="text-xs font-semibold">Formula:</p>
               <p className="text-xs mb-2">
-                {TOOLTIP_CONTENT.aiVisibility.formula}
+                {TOOLTIP_CONTENT.platformPerformance.formula}
               </p>
               <p className="text-xs font-semibold">Tiers:</p>
               <p className="text-xs">
-                • High: {TOOLTIP_CONTENT.aiVisibility.tiers.high}
+                • High: {TOOLTIP_CONTENT.platformPerformance.tiers.high}
               </p>
               <p className="text-xs">
-                • Medium: {TOOLTIP_CONTENT.aiVisibility.tiers.medium}
+                • Medium: {TOOLTIP_CONTENT.platformPerformance.tiers.medium}
               </p>
               <p className="text-xs">
-                • Low: {TOOLTIP_CONTENT.aiVisibility.tiers.low}
+                • Low: {TOOLTIP_CONTENT.platformPerformance.tiers.low}
               </p>
             </TooltipContent>
           </Tooltip>
@@ -118,6 +112,7 @@ export const ContentImpact = ({
                     </TableHead>
                     {brandNames.map((brand, i) => {
                       const isYourBrand = i === brandNames.length - 1;
+                      const logoInfo = brandLogos?.find(l => l.brand === brand);
                       return (
                         <TableHead
                           key={i}
@@ -125,7 +120,19 @@ export const ContentImpact = ({
                             isYourBrand ? "bg-primary/5 text-primary" : ""
                           }`}
                         >
-                          {brand}
+                          <div className="flex items-center justify-center gap-1">
+                            {logoInfo?.logo && (
+                              <img 
+                                src={logoInfo.logo} 
+                                alt={`${brand} logo`}
+                                className="h-4 w-4 rounded object-contain bg-white"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                }}
+                              />
+                            )}
+                            <span>{brand}</span>
+                          </div>
                         </TableHead>
                       );
                     })}
@@ -136,9 +143,11 @@ export const ContentImpact = ({
                     const sourceName = row[0] as string;
 
                     // Find the highest mention count in this row across all brands
+                    // Row structure: [Source, BrandA_Tier, BrandA_Mentions, BrandA_Score, BrandB_Tier, BrandB_Mentions, BrandB_Score, ..., CitedByLLMs, pages_used]
+                    // Each brand has 3 values in the row (tier string, mentions count, mention score string)
                     const mentionCounts: number[] = [];
                     for (let i = 0; i < brandNames.length; i++) {
-                      mentionCounts.push(row[1 + i * 3 + 1] as number);
+                      mentionCounts.push(safeNumber(row[2 + i * 3], 0));
                     }
                     const maxMentions = Math.max(...mentionCounts);
 
@@ -148,15 +157,14 @@ export const ContentImpact = ({
                           {sourceName}
                         </TableCell>
                         {brandNames.map((brand, index) => {
-                          // Each brand has mentions and score in the row
-                          const mentions = row[1 + index * 3 + 1] as number;
+                          // Each brand has 3 values: tier string, mentions count, mention score string
+                          const mentions = safeNumber(row[2 + index * 3], 0);
 
-                          // Calculate mention ratio: (brand mentions / max mentions) × 100
-                          const mentionRatio =
-                            maxMentions > 0 ? (mentions / maxMentions) * 100 : 0;
+                          // Calculate mention ratio using centralized formula
+                          const mentionRatio = calculateMentionRatio(mentions, maxMentions);
 
-                          // Get tier based on ratio
-                          const tier = getMentionTier(mentionRatio);
+                          // Get tier based on ratio using centralized formula
+                          const tier = getTierFromRatio(mentionRatio);
 
                           // check if this brand column is "your brand"
                           const isYourBrand = index === brandNames.length - 1;
@@ -176,7 +184,7 @@ export const ContentImpact = ({
                                 >
                                   Mentions: {mentions}
                                 </div>
-                                <Badge className={`${getMentionScoreColor(tier)} text-[10px] sm:text-xs px-1.5 py-0.5 sm:px-2 sm:py-1`}>
+                                <Badge className={`${getTierColor(tier)} text-[10px] sm:text-xs px-1.5 py-0.5 sm:px-2 sm:py-1`}>
                                   {tier}
                                 </Badge>
                               </div>

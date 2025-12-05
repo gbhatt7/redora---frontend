@@ -15,10 +15,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { TOOLTIP_CONTENT } from "@/lib/formulas";
+import { TOOLTIP_CONTENT, getSentimentColor } from "@/lib/formulas";
+
+interface BrandLogo {
+  brand: string;
+  logo: string;
+}
 
 interface CompetitorAnalysisProps {
   brandName: string;
+  brandLogos?: BrandLogo[];
   analysis: {
     competitor_visibility_table?: {
       header: string[];
@@ -31,21 +37,28 @@ interface CompetitorAnalysisProps {
   };
 }
 
-const getSentimentColor = (sentiment: string) => {
-  switch (sentiment.toLowerCase()) {
-    case "positive":
-      return "bg-success text-success-foreground";
-    case "negative":
-      return "bg-destructive text-destructive-foreground";
-    case "neutral":
-      return "bg-medium-neutral text-medium-neutral-foreground";
-    default:
-      return "bg-secondary text-secondary-foreground";
-  }
+const BrandWithLogo = ({ brandName, logos }: { brandName: string; logos?: BrandLogo[] }) => {
+  const logoInfo = logos?.find(l => l.brand === brandName);
+  return (
+    <div className="flex items-center gap-2">
+      {logoInfo?.logo && (
+        <img 
+          src={logoInfo.logo} 
+          alt={`${brandName} logo`}
+          className="h-5 w-5 rounded object-contain bg-white"
+          onError={(e) => {
+            (e.target as HTMLImageElement).style.display = 'none';
+          }}
+        />
+      )}
+      <span>{brandName}</span>
+    </div>
+  );
 };
 
 export const CompetitorAnalysis = ({
   brandName,
+  brandLogos,
   analysis,
 }: CompetitorAnalysisProps) => {
   if (
@@ -74,12 +87,12 @@ export const CompetitorAnalysis = ({
           </Tooltip>
         </div>
 
-        {/* Competitor Visibility by Keyword */}
+        {/* Competitor Mentions by Keyword */}
         {analysis.competitor_visibility_table && (
           <Card className="w-full max-w-full">
             <CardHeader className="p-3 md:p-4">
               <CardTitle className="text-sm sm:text-base lg:text-lg flex items-center gap-2">
-                Competitor Visibility by Keyword
+                Competitor Mentions by Keyword
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Info className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground cursor-help" />
@@ -130,7 +143,7 @@ export const CompetitorAnalysis = ({
                                 isYourBrand ? "text-primary font-bold" : ""
                               }`}
                             >
-                              {row[0]}
+                              <BrandWithLogo brandName={row[0] as string} logos={brandLogos} />
                             </TableCell>
                             {row.slice(1).map((cell, cellIndex) => (
                               <TableCell
@@ -211,7 +224,7 @@ export const CompetitorAnalysis = ({
                                 isYourBrand ? "text-primary font-bold" : ""
                               }`}
                             >
-                              {row[0]}
+                              <BrandWithLogo brandName={row[0] as string} logos={brandLogos} />
                             </TableCell>
                             <TableCell
                               className={`font-semibold w-[65%] whitespace-normal break-words text-xs sm:text-sm lg:text-base px-2 py-1.5 lg:px-4 ${

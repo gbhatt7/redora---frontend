@@ -1,6 +1,7 @@
 // src/apiHelpers.tsx
 import axios, { AxiosResponse } from "axios";
 import { API_ENDPOINTS } from "./api";
+import { handleUnauthorized, isUnauthorizedError } from "./lib/authGuard";
 
 /* =====================
    TYPES
@@ -68,6 +69,7 @@ const API = axios.create({
   baseURL: import.meta.env.VITE_BASE_URL,
 });
 
+// Request interceptor - add auth token
 API.interceptors.request.use((config) => {
   const token = localStorage.getItem("access_token");
   if (token && config.headers) {
@@ -78,6 +80,25 @@ API.interceptors.request.use((config) => {
   }
   return config;
 });
+
+// Response interceptor - handle 401 unauthorized errors
+API.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Skip auth check for login/register/verify endpoints
+    const authEndpoints = ['/login', '/register', '/verify-email', '/forgot-password', '/reset-password'];
+    const requestUrl = error.config?.url || '';
+    const isAuthEndpoint = authEndpoints.some(endpoint => requestUrl.includes(endpoint));
+    
+    if (!isAuthEndpoint && isUnauthorizedError(error)) {
+      console.log("🔒 [API] Unauthorized error detected - logging out user");
+      handleUnauthorized();
+      return Promise.reject(error);
+    }
+    
+    return Promise.reject(error);
+  }
+);
 
 /* =====================
    AUTH HELPERS

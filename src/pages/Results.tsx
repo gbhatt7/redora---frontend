@@ -67,6 +67,18 @@ interface AnalyticsData {
     };
     ai_visibility?: {
       weighted_mentions_total?: number;
+      geo_score?: number;
+      percentile_visibility?: number;
+      percentile_trace?: {
+        sorted_brand_info?: Array<{
+          brand: string;
+          geo_score: number;
+          logo: string;
+        }>;
+        brands_with_lower_geo_score?: number;
+        total_brands?: number;
+        calculation?: string;
+      };
       breakdown?: {
         top_two_mentions?: number;
         top_five_mentions?: number;
@@ -846,33 +858,26 @@ export default function Results() {
     );
   }
 
-  // Transform data to match component interfaces
+  // Extract brand mention data from percentile_trace.sorted_brand_info
+  type BrandInfo = { brand: string; geo_score: number; logo: string; mention_count?: number; mention_score?: number };
+  const sortedBrandInfo: BrandInfo[] = data.ai_visibility?.percentile_trace?.sorted_brand_info || [];
+  const currentBrandInfo = sortedBrandInfo.find(
+    (b) => b.brand?.toLowerCase() === data.brand_name?.toLowerCase()
+  );
+  const topBrandInfo = sortedBrandInfo[sortedBrandInfo.length - 1]; // Last item has highest score
+
+  // Transform data to match component interfaces - all values directly from backend
   const insights = {
     ai_visibility: {
-      tier: data.ai_visibility?.brand_tier || "",
-      ai_visibility_score: {
-        Value: data.ai_visibility?.weighted_mentions_total || 0,
-      },
-      weighted_mentions_total: {
-        Value: data.ai_visibility?.weighted_mentions_total || 0,
-      },
-      distinct_queries_count: {
-        Value: data.brand_mentions?.queries_with_mentions || 0,
-      },
-      breakdown: {
-        top_two_mentions: data.ai_visibility?.breakdown?.top_two_mentions || 0,
-        top_five_mentions:
-          data.ai_visibility?.breakdown?.top_five_mentions || 0,
-        later_mentions: data.ai_visibility?.breakdown?.later_mentions || 0,
-        calculation: data.ai_visibility?.breakdown?.calculation,
-      },
-      tier_mapping_method: data.ai_visibility?.tier_mapping_method,
-      explanation: data.ai_visibility?.explanation,
+      tier: data.ai_visibility?.brand_tier || "Low",
+      percentile_visibility: data.ai_visibility?.percentile_visibility ?? 0,
+      geo_score: data.ai_visibility?.geo_score ?? 0,
     },
     brand_mentions: {
-      total_sources_checked: {
-        Value: data.brand_mentions?.total_sources_checked || 0,
-      },
+      // mention_count from sorted_brand_info is total mentions for the brand
+      total_mentions: currentBrandInfo?.mention_count ?? data.brand_mentions?.total_mentions ?? 0,
+      // mention_score from sorted_brand_info is the percentile for speedometer
+      mention_score: currentBrandInfo?.mention_score ?? 0,
     },
     dominant_sentiment: {
       sentiment: data.sentiment?.dominant_sentiment || "",
@@ -880,39 +885,9 @@ export default function Results() {
     },
   };
 
-  // Calculate total mentions per brand from sources_and_content_impact table
-  const brandMentionTotals: { [key: string]: number } = {};
-  const contentImpact = data.sources_and_content_impact;
-
-  if (contentImpact?.header && contentImpact?.rows) {
-    const brandNames: string[] = [];
-    for (let i = 1; i < contentImpact.header.length - 2; i += 3) {
-      brandNames.push(contentImpact.header[i] as string);
-    }
-
-    brandNames.forEach((brand, index) => {
-      let total = 0;
-      contentImpact.rows.forEach((row) => {
-        const mentions = row[1 + index * 3 + 1] as number;
-        total += mentions;
-      });
-      brandMentionTotals[brand] = total;
-    });
-  }
-
-  let topBrand = "";
-  let topBrandTotal = 0;
-  Object.entries(brandMentionTotals).forEach(([brand, total]) => {
-    if (total > topBrandTotal) {
-      topBrandTotal = total;
-      topBrand = brand;
-    }
-  });
-
-  const yourBrandTotal =
-    Object.values(brandMentionTotals)[
-    Object.values(brandMentionTotals).length - 1
-    ] || 0;
+  // Get top brand mention data for comparison display
+  const topBrandMentionCount = topBrandInfo?.mention_count || 0;
+  const topBrandName = topBrandInfo?.brand || "";
 
   const handlePrint = () => {
     window.print();
@@ -954,6 +929,9 @@ export default function Results() {
                 <BrandHeader
                   brandName={data.brand_name || ""}
                   brandWebsite={data.brand_website || ""}
+                  brandLogo={data.ai_visibility?.percentile_trace?.sorted_brand_info?.find(
+                    b => b.brand === data.brand_name
+                  )?.logo}
                   keywordsAnalyzed={data.analysis_scope?.search_keywords || []}
                   status={data.status || ""}
                   date={
@@ -1005,9 +983,10 @@ export default function Results() {
                       }
                       : undefined
                   }
-                  yourBrandTotal={yourBrandTotal}
-                  topBrand={topBrand}
-                  topBrandTotal={topBrandTotal}
+                  yourBrandTotal={currentBrandInfo?.mention_count || 0}
+                  topBrand={topBrandName}
+                  topBrandTotal={topBrandMentionCount}
+                  competitorCount={sortedBrandInfo.length}
                 />
               </div>
 
@@ -1038,6 +1017,10 @@ export default function Results() {
                 <div style={{ pageBreakInside: "avoid", breakInside: "avoid" }}>
                   <CompetitorAnalysis
                     brandName={data.brand_name || ""}
+                    brandLogos={data.ai_visibility?.percentile_trace?.sorted_brand_info?.map(b => ({
+                      brand: b.brand,
+                      logo: b.logo
+                    }))}
                     analysis={{
                       competitor_visibility_table:
                         data.competitor_visibility_table?.header &&
@@ -1070,6 +1053,10 @@ export default function Results() {
                   >
                     <ContentImpact
                       brandName={data.brand_name || ""}
+                      brandLogos={data.ai_visibility?.percentile_trace?.sorted_brand_info?.map(b => ({
+                        brand: b.brand,
+                        logo: b.logo
+                      }))}
                       contentImpact={{
                         header: data.sources_and_content_impact.header,
                         rows: data.sources_and_content_impact.rows,
